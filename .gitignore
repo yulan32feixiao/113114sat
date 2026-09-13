@@ -1,0 +1,4 @@
+raw.json
+bank.json
+*.b64
+.DS_Store
