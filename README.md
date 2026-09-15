@@ -35,6 +35,7 @@ POST https://qbank-api.collegeboard.org/msreportingquestionbank-prod/questionban
 
 ## 功能
 
+- **考点卡片** — 29 个官方考点每个一张卡：一句话说清考什么、规则型还是理解型、一道样题、你自己的正确率/均时/失分集中在哪个分数段，卡上直接配难度和题量开练
 - **按考点出题** — 4 个 section domain、29 个官方考点、难度 E/M/H、官方 score band 1–7 任意组合
 - **答案提交前不可见** — 官方题库网页版一打开答案就在旁边，这里不是
 - **多账户** — 本机注册登录，每个账户的进度、错题、标记、API key、水平完全独立
@@ -90,6 +91,23 @@ python3 build_bank.py      # gzip -> bank.bin
 - AI 拆解由模型生成，**可能出错**；与官方解析冲突时以官方为准
 - 模考报告的分数区间是本工具的估算规则（按官方 score band 从高到低找第一个「做够 4 题且正确率 ≥60%」的 band），**不是 College Board 的算分**。真正的自适应算分基于 IRT、换算表从未公开。第二模块 60% 的路由阈值同样是估的
 - 导入试卷里的题由模型从你的文件整理而来，可能整理错；不计入官方考点统计。扫描件 / 图片 PDF 需要先 OCR，老的 .doc 要先另存为 .docx
+
+## 出问题了怎么回退
+
+每个验证通过的版本都打了 tag。线上出问题时，一条命令回到上一个好版本：
+
+```bash
+git reset --hard stable-v1     # 换成要回退到的 tag
+git push --force origin main
+```
+
+GitHub Pages 会在一分钟内重新构建成那个版本。查看所有可回退的版本：
+
+```bash
+git tag -l -n1
+```
+
+回退不会动你的练习记录 —— 记录存在浏览器 localStorage 里，和网站代码是两回事。
 
 ## 浏览器要求
 
