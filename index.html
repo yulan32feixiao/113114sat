@@ -320,6 +320,37 @@ select,input[type=number]{font:inherit;font-size:13px;padding:6px 9px;border:1px
 .viewcard .vans{margin-top:12px;padding-top:12px;border-top:1px solid var(--rule)}
 .markflag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;
   padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink)}
+.logsplit{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:14px;align-items:start}
+@media(max-width:900px){.logsplit{grid-template-columns:1fr}}
+.loglist{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);
+  overflow-y:auto;max-height:calc(100vh - 250px)}
+@media(max-width:900px){.loglist{max-height:360px}}
+.logrow{display:flex;align-items:flex-start;gap:10px;padding:10px 13px;cursor:pointer;
+  border-bottom:1px solid var(--rule)}
+.logrow:last-child{border-bottom:none}
+.logrow:hover{background:var(--surface-2)}
+.logrow.active{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.logrow.picked{background:var(--surface-2)}
+.logrow.active.picked{background:var(--accent-soft)}
+.lrmeta{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lrtop{display:flex;align-items:center;gap:6px}
+.lrsk{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrsub{font-family:var(--f-num);font-size:10.5px;color:var(--ink-3)}
+.lrq{font-size:11.5px;color:var(--ink-2);line-height:1.45;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.markflag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;
+  padding:1px 6px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);flex:none}
+.logpreview{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);
+  display:flex;flex-direction:column;max-height:calc(100vh - 250px)}
+@media(max-width:900px){.logpreview{max-height:none}}
+.pvtop{display:flex;gap:7px;flex-wrap:wrap;padding:11px 14px;border-bottom:1px solid var(--rule);flex:none}
+.pvscroll{overflow-y:auto;padding:16px 18px}
+.qpanel{max-width:660px}
+.qphead{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.qpcn{font-size:12px;color:var(--ink-3);margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--rule)}
+.qpbody .stimwrap{margin-bottom:16px}
+.qpbody .opt{cursor:default}
+.selbar .cnt.dim{color:var(--ink-3);font-weight:400}
 .skgroup{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:22px 0 8px;
   padding-bottom:7px;border-bottom:1px solid var(--rule-2)}
 .skgroup .dn{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
@@ -2848,26 +2879,107 @@ function runRx(spec){
 
 /* ============ 错题本 / 标记 ============ */
 let logFilter = {sec:0, dom:"", onlyDue:false};
+let bulkMode  = false;      // 默认关闭，点「批量」才出勾选框
+let previewQid = null;
+
+function questionPanel(q, a, opts){
+  opts = opts||{};
+  const wrap = el("div","qpanel");
+  const hd = el("div","qphead");
+  hd.innerHTML = `
+    <span class="tag chip">${esc(DOMAINS[q.dom].name)}</span>
+    <span class="tag chip">${esc(q.sk)}</span>
+    <span class="tag chip">${DIFF[q.df]||q.df}${q.bd?" · band "+q.bd:""}</span>
+    <span class="tag chip">${q.ty==="spr"?"填空":"四选一"}</span>
+    ${marks[q.id]? '<span class="markflag">已标记</span>':''}`;
+  wrap.appendChild(hd);
+  const info = SKILL_INFO[q.sk];
+  if(info) wrap.appendChild(el("div","qpcn", esc(info.cn)));
+
+  const body = el("div","qpbody");
+  if(q.sti) body.appendChild(el("div","stimwrap", `<div class="qtext">${q.sti}</div>`));
+  body.appendChild(el("div","stemtext", `<div class="qtext">${q.ste}</div>`));
+  if(q.ty!=="spr"){
+    const ol = el("div","opts");
+    q.op.forEach((o,k)=>{
+      const L="ABCD"[k], right=q.an.includes(L), mine=a && a.picked===L;
+      const d = el("div","opt"+(right?" correct":(mine?" chosen-wrong":"")));
+      d.innerHTML = `<span class="ltr">${L}</span><span class="oc qtext">${o}</span>`;
+      ol.appendChild(d);
+    });
+    body.appendChild(ol);
+  }
+  const ans = el("div","vans");
+  ans.innerHTML = `<div class="eyebrow">正确答案：${esc(q.an.join(" / "))}${
+    a? `　·　你当时选了 ${esc(a.picked||"未答")}　·　用时 ${Math.round((a.ms||0)/1000)} 秒`:""}</div>`;
+  body.appendChild(ans);
+  body.appendChild(el("div","rat",
+    `<div class="eyebrow">College Board 官方解析</div><div class="qtext">${q.ra}</div>`));
+  if(notesByQ[q.id]){
+    const n = el("div","explain");
+    n.innerHTML = `<div class="eyebrow">AI 拆解</div><div class="body">${esc(notesByQ[q.id].text)}</div>`;
+    body.appendChild(n);
+  }
+  wrap.appendChild(body);
+  return wrap;
+}
+
+function openFullscreen(qs, label, startIdx){
+  const root=$("#view-run"); root.innerHTML="";
+  root.classList.remove("hide");
+  document.body.style.overflow="hidden";
+  let i = startIdx||0;
+  const draw=()=>{
+    root.innerHTML="";
+    const q = qs[i];
+    const a = attempts.filter(x=>x.qid===q.id).slice(-1)[0] || null;
+    const bar = el("div","runbar");
+    bar.innerHTML = `<span class="qn">${i+1} / ${qs.length}</span><span class="tag">${esc(label)}</span>`;
+    bar.appendChild(el("div","spacer"));
+    bar.appendChild(sizeControl());
+    const mk = el("button","ghost", marks[q.id]?"已标记":"标记");
+    mk.setAttribute("aria-pressed", !!marks[q.id]);
+    mk.onclick=()=>{ toggleMark(q.id); draw(); };
+    bar.appendChild(mk);
+    const doIt = el("button","ghost","做这道");
+    doIt.onclick=()=>{ root.innerHTML=""; startRun([q],{label:q.sk,timed:false}); };
+    bar.appendChild(doIt);
+    const x = el("button","ghost","关闭");
+    x.onclick=()=>{ root.classList.add("hide"); root.innerHTML=""; document.body.style.overflow=""; render(); };
+    bar.appendChild(x);
+    root.appendChild(bar);
+    const body = el("div","runbody single"); const pane=el("div","pane");
+    const inner = el("div","pane-inner"); inner.style.maxWidth="760px";
+    inner.appendChild(questionPanel(q, a));
+    const nav = el("div","btnrow"); nav.style.marginTop="20px";
+    const prev = el("button","ghost","上一题"); prev.disabled=i===0;
+    prev.onclick=()=>{ i--; draw(); };
+    const next = el("button","primary","下一题"); next.disabled=i===qs.length-1;
+    next.onclick=()=>{ i++; draw(); };
+    nav.appendChild(prev); nav.appendChild(next);
+    inner.appendChild(nav);
+    pane.appendChild(inner); body.appendChild(pane); root.appendChild(body);
+    applyScale();
+  };
+  draw();
+}
 
 function renderLog(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div><h1>${listTab==="wrong"?"错题本":"我标记的题"}</h1>
-    <p>${listTab==="wrong"
-      ? "勾选要练的题，一次练一批。也可以只看不做，把题目和官方解析摊开读。"
-      : "答题时按「标记」存下来的题。每道题下面可以直接找同考点的题继续练。"}</p></div>`;
+    <p>左边点一道题，右边直接看题目和官方解析。要一次处理多道，点「批量」打开勾选。</p></div>`;
   app.appendChild(head);
 
-  const tabs = el("div","gtabs"); tabs.style.maxWidth="300px"; tabs.style.marginBottom="16px";
+  const tabs = el("div","gtabs"); tabs.style.maxWidth="300px"; tabs.style.marginBottom="14px";
   [["wrong",`错题 ${new Set(attempts.filter(a=>!a.ok).map(a=>a.qid)).size}`],
    ["marked",`标记 ${Object.keys(marks).length}`]].forEach(([k,t])=>{
     const b=el("button",null,t);
     b.setAttribute("aria-current", listTab===k?"page":"false");
-    b.onclick=()=>{ listTab=k; picked.clear(); render(); };
+    b.onclick=()=>{ listTab=k; picked.clear(); previewQid=null; render(); };
     tabs.appendChild(b);
   });
   app.appendChild(tabs);
 
-  // 数据源
   let items;
   if(listTab==="wrong"){
     const seen=new Set(); items=[];
@@ -2878,10 +2990,9 @@ function renderLog(app){
   }else{
     items = Object.entries(marks).sort((a,b)=>b[1].ts-a[1].ts)
       .filter(([qid])=>BYID[qid])
-      .map(([qid,m])=>({qid, q:BYID[qid], a:attempts.filter(x=>x.qid===qid).slice(-1)[0]||null, m}));
+      .map(([qid,m])=>({qid, q:BYID[qid], a:attempts.filter(x=>x.qid===qid).slice(-1)[0]||null}));
   }
 
-  // 筛选条
   const bar = el("div","chips"); bar.style.marginBottom="12px";
   const mkc=(t,v,key)=>{const c=el("button","chip",t);c.setAttribute("aria-pressed",logFilter[key]===v);
     c.onclick=()=>{logFilter[key]=logFilter[key]===v?(key==="sec"?0:""):v; picked.clear(); render();};return c;};
@@ -2899,7 +3010,7 @@ function renderLog(app){
   }
   app.appendChild(bar);
 
-  let list = items.filter(x=>
+  const list = items.filter(x=>
     (!logFilter.sec || x.q.sec===logFilter.sec) &&
     (!logFilter.dom || x.q.dom===logFilter.dom) &&
     (!logFilter.onlyDue || (reviewQ[x.qid] && reviewQ[x.qid].due<=Date.now())));
@@ -2909,68 +3020,108 @@ function renderLog(app){
       ? "还没有符合条件的错题。" : "还没有标记过的题。答题时点右上角「标记」就会收到这里。"));
     return;
   }
+  const shown = list.slice(0,200);
+  if(!previewQid || !shown.some(x=>x.qid===previewQid)) previewQid = shown[0].qid;
 
-  const shown = list.slice(0,150);
-  app.appendChild(selBar(()=>shown.map(x=>x.qid),
-    n=> (listTab==="wrong"?"错题练习 · ":"标记练习 · ")+n+" 题"));
-
-  shown.forEach(x=>{
-    const q=x.q, a=x.a;
-    const c = el("div","logcard"+(picked.has(x.qid)?" picked":""));
-    const hd = el("header");
-    const ck = el("input"); ck.type="checkbox"; ck.className="ck"; ck.checked=picked.has(x.qid);
-    ck.onclick=e=>{ e.stopPropagation(); picked.has(x.qid)?picked.delete(x.qid):picked.add(x.qid); render(); };
-    hd.appendChild(ck);
-    const rv = reviewQ[x.qid];
-    const days = rv ? Math.ceil((rv.due-Date.now())/DAY) : null;
-    hd.insertAdjacentHTML("beforeend", `
-      <span class="tag chip">${esc(DOMAINS[q.dom].name)}</span>
-      <span class="tag chip">${esc(q.sk)}</span>
-      <span class="tag chip">${DIFF[q.df]||q.df}${q.bd?" · band "+q.bd:""}</span>
-      ${marks[x.qid]? '<span class="markflag">已标记</span>':''}
-      ${rv? `<span class="srbadge">第${rv.box}盒 · ${days<=0?"今天复习":days+" 天后"}</span>`:""}
-      ${notesByQ[x.qid]? '<span class="srbadge" style="background:var(--surface-2);color:var(--ink-2)">已拆解</span>':""}
-      ${a? `<span class="skmeta" style="margin-left:auto">你选 ${esc(a.picked||"未答")} · 正确 ${esc(a.correct)} · ${Math.round((a.ms||0)/1000)}s</span>`:""}`);
-    c.appendChild(hd);
-    c.appendChild(el("div","q qtext", q.ste));
-
-    const row = el("div","btnrow"); row.style.justifyContent="flex-start"; row.style.marginTop="10px";
-    const one = el("button","drillbtn","做这道");
-    one.onclick=()=>startRun([q],{label:"单题 · "+q.sk, timed:false, review:!!rv});
-    row.appendChild(one);
-    const see = el("button","drillbtn","看答案解析");
-    see.onclick=()=>openBrowse([q], q.sk);
-    row.appendChild(see);
-    const same = el("button","drillbtn","同考点再来 10 题");
-    same.onclick=()=>{
-      const qs = pick({sec:q.sec, doms:[q.dom], skills:[q.sk], bands:[], diffs:[], n:10, fresh:true});
-      if(!qs.length) return toast("这个考点没有更多题了");
-      startRun(qs, {label:q.sk+" 同考点", timed:false});
-    };
-    row.appendChild(same);
-    const mk = el("button","drillbtn", marks[x.qid]?"取消标记":"标记");
-    mk.onclick=()=>{ toggleMark(x.qid); render(); };
-    row.appendChild(mk);
-    if(listTab==="wrong" && rv){
-      const rm=el("button","drillbtn","移出错题集");
-      rm.onclick=async()=>{ delete reviewQ[x.qid]; await flushReview(); render(); };
-      row.appendChild(rm);
-    }
-    c.appendChild(row);
-    app.appendChild(c);
-  });
-
-  if(list.length>150) app.appendChild(el("div","empty",`共 ${list.length} 题，只显示最近 150 条。`));
-
-  const dl = el("div","btnrow"); dl.style.marginTop="18px";
-  const b = el("button","ghost","把这批导出 Word");
-  b.onclick=()=>{
-    const use = picked.size? shown.filter(x=>picked.has(x.qid)) : shown;
-    exportDocx(b, use.map(x=>({q:x.q, a:x.a})),
+  // —— 工具条：批量开关 + 批量操作 ——
+  const tb = el("div","selbar");
+  const bulk = el("button", bulkMode?"chip":"drillbtn", bulkMode? "退出批量" : "批量");
+  bulk.setAttribute("aria-pressed", bulkMode);
+  bulk.onclick=()=>{ bulkMode=!bulkMode; if(!bulkMode) picked.clear(); render(); };
+  tb.appendChild(bulk);
+  if(bulkMode){
+    tb.appendChild(el("span","cnt", `已选 ${picked.size} / ${shown.length}`));
+    const all=el("button","drillbtn","全选");
+    all.onclick=()=>{ shown.forEach(x=>picked.add(x.qid)); render(); };
+    const none=el("button","drillbtn","清空");
+    none.onclick=()=>{ picked.clear(); render(); };
+    tb.appendChild(all); tb.appendChild(none);
+    tb.appendChild(el("div","spacer"));
+    const sel = ()=>[...picked].map(id=>BYID[id]).filter(Boolean);
+    const pv = el("button","ghost","预览选中的");
+    pv.disabled=!picked.size;
+    pv.onclick=()=>openFullscreen(sel(), (listTab==="wrong"?"错题":"标记")+"预览", 0);
+    tb.appendChild(pv);
+    const dl = el("button","ghost","下载 Word");
+    dl.disabled=!picked.size;
+    dl.onclick=()=>exportDocx(dl, shown.filter(x=>picked.has(x.qid)).map(x=>({q:x.q,a:x.a})),
       {title: listTab==="wrong"?"SAT 错题本":"SAT 标记题"}, "");
-  };
-  dl.appendChild(b);
-  app.appendChild(dl);
+    tb.appendChild(dl);
+    const go = el("button","primary",`做这 ${picked.size} 题`);
+    go.disabled=!picked.size;
+    go.onclick=()=>startRun(sel(), {label:(listTab==="wrong"?"错题练习":"标记练习")+" · "+picked.size+" 题", timed:false});
+    tb.appendChild(go);
+  }else{
+    tb.appendChild(el("span","cnt dim", `${list.length} 道题`));
+    tb.appendChild(el("div","spacer"));
+    const dl = el("button","ghost","全部下载 Word");
+    dl.onclick=()=>exportDocx(dl, shown.map(x=>({q:x.q,a:x.a})),
+      {title: listTab==="wrong"?"SAT 错题本":"SAT 标记题"}, "");
+    tb.appendChild(dl);
+  }
+  app.appendChild(tb);
+
+  // —— 左右两栏 ——
+  const split = el("div","logsplit");
+  const left = el("div","loglist");
+  shown.forEach(x=>{
+    const q=x.q, a=x.a, rv=reviewQ[x.qid];
+    const days = rv ? Math.ceil((rv.due-Date.now())/DAY) : null;
+    const row = el("div","logrow"+(previewQid===x.qid?" active":"")+(picked.has(x.qid)?" picked":""));
+    if(bulkMode){
+      const ck=el("input"); ck.type="checkbox"; ck.className="ck"; ck.checked=picked.has(x.qid);
+      ck.onclick=e=>{ e.stopPropagation(); picked.has(x.qid)?picked.delete(x.qid):picked.add(x.qid); render(); };
+      row.appendChild(ck);
+    }
+    const meta = el("div","lrmeta");
+    meta.innerHTML = `
+      <div class="lrtop">
+        <span class="lrsk">${esc(q.sk)}</span>
+        ${marks[x.qid]? '<span class="markflag">标</span>':''}
+      </div>
+      <div class="lrsub">${esc(DOMAINS[q.dom].name)} · ${DIFF[q.df]||q.df}${q.bd?" · band "+q.bd:""}${
+        rv? ` · 第${rv.box}盒 ${days<=0?"今天":days+"天后"}`:""}</div>
+      <div class="lrq">${esc(stripTags(q.ste).slice(0,70))}</div>`;
+    row.appendChild(meta);
+    row.onclick=()=>{ if(bulkMode){ picked.has(x.qid)?picked.delete(x.qid):picked.add(x.qid); }
+                      else previewQid=x.qid; render(); };
+    left.appendChild(row);
+  });
+  if(list.length>200) left.appendChild(el("div","empty",`共 ${list.length} 题，只显示 200 条。`));
+  split.appendChild(left);
+
+  // 右栏预览
+  const right = el("div","logpreview");
+  const cur = shown.find(x=>x.qid===previewQid);
+  if(cur){
+    const top = el("div","pvtop");
+    const fs = el("button","drillbtn","全屏");
+    fs.onclick=()=>openFullscreen(shown.map(x=>x.q), listTab==="wrong"?"错题本":"标记题",
+                                  shown.findIndex(x=>x.qid===previewQid));
+    const doIt = el("button","drillbtn","做这道");
+    doIt.onclick=()=>startRun([cur.q],{label:"单题 · "+cur.q.sk, timed:false, review:!!reviewQ[cur.qid]});
+    const same = el("button","drillbtn","同考点 10 题");
+    same.onclick=()=>{
+      const qs=pick({sec:cur.q.sec,doms:[cur.q.dom],skills:[cur.q.sk],bands:[],diffs:[],n:10,fresh:true});
+      if(!qs.length) return toast("这个考点没有更多题了");
+      startRun(qs,{label:cur.q.sk+" 同考点", timed:false});
+    };
+    const mk = el("button","drillbtn", marks[cur.qid]?"取消标记":"标记");
+    mk.onclick=()=>{ toggleMark(cur.qid); render(); };
+    [fs,doIt,same,mk].forEach(b=>top.appendChild(b));
+    if(listTab==="wrong" && reviewQ[cur.qid]){
+      const rm=el("button","drillbtn","移出错题集");
+      rm.onclick=async()=>{ delete reviewQ[cur.qid]; await flushReview(); previewQid=null; render(); };
+      top.appendChild(rm);
+    }
+    right.appendChild(top);
+    const sc = el("div","pvscroll");
+    sc.appendChild(questionPanel(cur.q, cur.a));
+    right.appendChild(sc);
+  }
+  split.appendChild(right);
+  app.appendChild(split);
+  applyScale();
 }
 
 /* ============ 导入试卷 ============
