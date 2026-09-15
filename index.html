@@ -158,7 +158,8 @@ select,input[type=number]{font:inherit;font-size:13px;padding:6px 9px;border:1px
 #view-run{position:fixed;inset:0;z-index:60;background:var(--paper);display:flex;flex-direction:column}
 .runbar{display:flex;align-items:center;gap:14px;height:48px;padding:0 18px;
   background:var(--surface);border-bottom:1px solid var(--rule);flex:none}
-.runbar .qn{font-family:var(--f-num);font-size:12.5px;font-weight:600}
+.runbar .qn{font-family:var(--f-num);font-size:12px;font-weight:600;padding:3px 9px;
+  border:1px solid var(--rule-2);border-radius:var(--r);color:var(--ink-2);line-height:1.35}
 .runbar .tag{padding:2.5px 8px;border-radius:99px;background:var(--surface-2);font-size:11px;font-weight:500;color:var(--ink-2)}
 .bandpip{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-num);font-size:11px;color:var(--ink-2)}
 .bandpip i{width:8px;height:8px;border-radius:2px}
@@ -321,6 +322,30 @@ select,input[type=number]{font:inherit;font-size:13px;padding:6px 9px;border:1px
 .markflag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;
   padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink)}
 .logsplit{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:14px;align-items:start}
+.logleft{display:flex;flex-direction:column;gap:10px}
+.folders{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:9px}
+.folders .gtabs{margin-bottom:0}
+.folderlist{display:flex;flex-direction:column;gap:1px;max-height:190px;overflow-y:auto;margin-top:8px}
+.folderitem{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:3px;text-align:left}
+.folderitem:hover{background:var(--surface-2)}
+.folderitem.on{background:var(--ink);color:var(--surface)}
+.folderitem .fname{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.folderitem .fcount{font-size:10.5px;opacity:.7}
+.okflag{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;
+  border-radius:50%;background:var(--ok);color:#fff;font-size:9px;font-weight:700;flex:none}
+.drillbtn.ondone{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.dualtimer .q.froz{color:var(--accent)}
+#vocabpop{position:fixed;z-index:400}
+.vpbtn{padding:7px 14px;background:var(--ink);color:var(--surface);border-radius:99px;
+  font-size:12.5px;font-weight:600;box-shadow:var(--shadow);white-space:nowrap}
+.vpbtn:hover{background:var(--accent)}
+.vcard{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);
+  padding:14px 16px;margin-bottom:9px}
+.vw{font-family:var(--f-read);font-size:17px;font-weight:600;margin-bottom:7px}
+.vctx{font-family:var(--f-read);font-size:14px;line-height:1.65;color:var(--ink-2)}
+.vctx mark{background:var(--accent-soft);color:var(--accent-ink);padding:0 2px;border-radius:2px}
+.vmeta{font-family:var(--f-num);font-size:10.5px;color:var(--ink-3);margin-top:7px}
+.qtext{-webkit-user-select:text;user-select:text}
 @media(max-width:900px){.logsplit{grid-template-columns:1fr}}
 .loglist{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);
   overflow-y:auto;max-height:calc(100vh - 250px)}
@@ -474,6 +499,7 @@ textarea.pref{font:inherit;font-size:13.5px;line-height:1.6;width:100%;padding:1
   <nav class="tabs">
     <button data-view="home" aria-current="page">控制台</button>
     <button data-view="log">错题本</button>
+    <button data-view="vocab">生词本</button>
     <button data-view="paper">导入试卷</button>
     <button data-view="settings">设置</button>
     <button data-view="source">数据来源</button>
@@ -664,6 +690,8 @@ async function boot(){
   try{ const v=+localStorage.getItem("b7_rs"); if(v>=0 && v<RS_STEPS.length) rsIdx=v; }catch(e){}
   $("#topsize").appendChild(sizeControl());
   applyScale();
+  initVocabSelection();
+  initHistory();
   $("#boot").remove();
 
   const sess = lsGet("b7_session","");
@@ -879,8 +907,11 @@ function loadAll(){
   marks    = lsGet(K("marks"), {});
   rx       = lsGet(K("rx"), []);
   papers.forEach(p=> (p.qs||[]).forEach(q=>{ BYID[q.id]=q; }));
-  settings = Object.assign({key:"",model:"deepseek-v4-pro",base:"https://api.deepseek.com",pref:"",fb:[]},
+  settings = Object.assign({key:"",model:"deepseek-v4-pro",base:"https://api.deepseek.com",pref:"",fb:[],
+                            reveal:"end"},   // end = 做完统一出答案；now = 交一题出一题
                            lsGet(K("settings"), {}));
+  vocab    = lsGet(K("vocab"), []);
+  mastered = lsGet(K("mastered"), {});
   syncNote();
 }
 function syncNote(){
@@ -891,6 +922,8 @@ const saveLocal    = ()=>{ lsSet(K("attempts"), attempts.slice(-8000)); syncNote
 const flushReview  = async ()=>{ lsSet(K("review"), reviewQ); };
 const saveSettings = ()=>{ lsSet(K("settings"), settings); };
 const saveMarks    = ()=>{ lsSet(K("marks"), marks); };
+const saveVocab    = ()=>{ lsSet(K("vocab"), vocab.slice(-2000)); };
+const saveMastered = ()=>{ lsSet(K("mastered"), mastered); };
 const saveRx       = ()=>{ lsSet(K("rx"), rx); };
 
 async function recordAttempt(a){ attempts.push(a); saveLocal(); }
@@ -981,12 +1014,22 @@ function statsFor(filterFn){
 const skillStats = (dom,sk)=> statsFor(r=>r.dom===dom && r.sk===sk);
 
 /* ============ views ============ */
+let lastView = null;
 function render(){
   document.querySelectorAll("nav.tabs button").forEach(b=>
     b.setAttribute("aria-current", b.dataset.view===view?"page":"false"));
+  // 记住内部可滚动容器的位置，重绘后还原 —— 否则勾一个选项整页就弹回顶部
+  const keep = {};
+  document.querySelectorAll("[data-keepscroll]").forEach(e=>{ keep[e.dataset.keepscroll]=e.scrollTop; });
+  const y = window.scrollY;
   const app=$("#app"); app.innerHTML="";
-  ({home:renderHome, log:renderLog, paper:renderImport, settings:renderSettings, source:renderSource}[view])(app);
-  window.scrollTo(0,0);
+  ({home:renderHome, log:renderLog, vocab:renderVocab, paper:renderImport,
+    settings:renderSettings, source:renderSource}[view])(app);
+  document.querySelectorAll("[data-keepscroll]").forEach(e=>{
+    if(keep[e.dataset.keepscroll]!=null) e.scrollTop = keep[e.dataset.keepscroll];
+  });
+  if(view!==lastView){ window.scrollTo(0,0); lastView = view; }
+  else window.scrollTo(0, y);
 }
 
 function daysLeft(){
@@ -1411,10 +1454,12 @@ function app_rebuildBuilder(root){
   sel.onchange = ()=>{ cfg.skills = sel.value? [sel.value] : []; app_rebuildBuilder(root); };
   fields.appendChild(mk("考点", sel));
 
-  fields.appendChild(mk("Score band", chipRow(
-    [1,2,3,4,5,6,7].map(n=>({t:String(n),v:n})), cfg.bands, v=>{cfg.bands=tog(cfg.bands,v);})));
-  fields.appendChild(mk("难度", chipRow(
-    [{t:"Easy",v:"E"},{t:"Medium",v:"M"},{t:"Hard",v:"H"}], cfg.diffs, v=>{cfg.diffs=tog(cfg.diffs,v);})));
+  const dField = mk("难度", chipRow(
+    [{t:"Easy",v:"E"},{t:"Medium",v:"M"},{t:"Hard",v:"H"}], cfg.diffs, v=>{cfg.diffs=tog(cfg.diffs,v);}));
+  dField.appendChild(el("div","hint", cfg.diffs.length
+    ? `只出 ${cfg.diffs.map(d=>DIFF[d]).join(" / ")}。`
+    : "一个都不选 = 三档混合随机抽，比例跟题库一致。想专攻某一档就点亮它。"));
+  fields.appendChild(dField);
 
   const nIn = el("input"); nIn.type="number"; nIn.min=5; nIn.max=60; nIn.value=cfg.n;
   nIn.onchange=()=>{ cfg.n=Math.max(1,Math.min(60,+nIn.value||15)); app_rebuildBuilder(root); };
@@ -1450,6 +1495,8 @@ function app_rebuildBuilder(root){
 /* ============ 学习时长 ============ */
 let sessions = [];
 let marks = {};      // qid -> {ts, sk, dom}  跨会话保留的标记
+let vocab = [];      // 生词本
+let mastered = {};   // qid -> ts  错题本里打过对号的
 let rx = [];         // AI 开出的推荐练习
 const minutesOf = ms => Math.round(ms/60000);
 function logSession(rec){
@@ -1609,18 +1656,36 @@ function drawBreak(minutes, next){
 function startRun(qs, opt){
   if(!qs || !qs.length){ toast("没有符合条件的题"); return; }
   sessionAnalysis = "";
-  run = { qs, i:0, label:opt.label, timed:opt.timed!==false, finished:false, review:!!opt.review,
+  const blind = opt.blind!=null ? opt.blind : (settings.reveal!=="now");
+  run = { qs, i:0, label:opt.label, timed:opt.timed!==false, finished:false, review:!!opt.review, blind,
           state: qs.map(()=>({picked:null, sub:false, ok:null, ms:0, marked:false, struck:[], aid:null, why:null})),
           t0: Date.now(), total0: Date.now() };
   $("#view-run").classList.remove("hide");
   document.body.style.overflow="hidden";
+  try{ history.pushState({v:view, run:1}, "", "#run"); }catch(e){}
   drawRun();
   tick();
 }
-function endRun(){
+async function gradeAll(){
+  for(let k=0;k<run.qs.length;k++){
+    const q=run.qs[k], st=run.state[k];
+    if(st.sub || st.picked==null) { if(st.picked==null){ st.sub=true; st.ok=false; } continue; }
+    st.ok = q.ty==="spr" ? sprMatch(st.picked,q.an) : q.an.includes(st.picked);
+    st.sub = true;
+    st.aid = q.id+"-"+Date.now().toString(36)+"-"+k;
+    await recordAttempt({aid:st.aid, qid:q.id, eid:q.eid, sec:q.sec, dom:q.dom, sk:q.sk,
+      df:q.df, bd:q.bd, ty:q.ty, picked:st.picked, correct:q.an.join("|"), ok:st.ok,
+      ms:st.ms, why:null, ts:Date.now(), session:run.label, review:!!run.review});
+    if(run.review && reviewQ[q.id]) gradeReview(q.id, st.ok);
+    else if(!st.ok) collect(q.id, null);
+  }
+  await flushReview();
+}
+async function endRun(){
   if(run.finished) return;
   saveTime();
   if(run.mock){ run.finished=true; return finishStage(); }
+  if(run.blind) await gradeAll();
   run.finished = true;
   clearInterval(run._t);
   const done = run.state.filter(s=>s.sub);
@@ -1663,6 +1728,16 @@ function tick(){
     const tq = $("#tq"), tt2 = $("#tt");
     if(tq){                                   // 普通练习：本题用时 + 全组总用时
       const st = run.state[run.i];
+      if(run.frozen){
+        tq.textContent = mmss(Math.round((st.ms||0)/1000));
+        tq.classList.add("froz");
+        const lb = tq.parentElement.querySelector(".lab");
+        if(lb) lb.textContent = "看解析·停表";
+        return;
+      }
+      const lb0 = tq.parentElement.querySelector(".lab");
+      if(lb0 && lb0.textContent!=="本题") lb0.textContent = "本题";
+      tq.classList.remove("froz");
       const cur = Math.round((Date.now()-run.t0)/1000) + Math.round((st.ms||0)/1000);
       tq.textContent = mmss(cur);
       const cap = run.qs[run.i].sec===1 ? 71 : 95;   // R&W 32min/27题≈71s，Math 35min/22题≈95s
@@ -1813,24 +1888,31 @@ function drawRun(){
     const isMarked = !!marks[run.qs[k].id];
     const dd = el("button","dot"+(s.sub?(s.ok?" ok":" no"):(s.picked?" done":""))+(k===run.i?" cur":"")+(isMarked?" marked":""), String(k+1));
     dd.style.position="relative";
-    dd.onclick=()=>{ saveTime(); run.i=k; run.t0=Date.now(); drawRun(); };
+    dd.onclick=()=>{ saveTime(); unfreeze(); run.i=k; drawRun(); };
     dots.appendChild(dd);
   });
   foot.appendChild(dots);
   foot.appendChild(el("div","spacer"));
   const prev = el("button","ghost","上一题");
   prev.disabled = run.i===0;
-  prev.onclick=()=>{ saveTime(); run.i--; run.t0=Date.now(); drawRun(); };
+  prev.onclick=()=>{ saveTime(); unfreeze(); run.i--; drawRun(); };
   foot.appendChild(prev);
-  if(run.mock){
-    const nb = el("button","primary", run.i===run.qs.length-1 ? "交卷" : "下一题");
+  if(run.mock || run.blind){
+    const last = run.i===run.qs.length-1;
+    const nb = el("button","primary", last ? (run.mock?"交卷":"交卷看结果") : "下一题");
     nb.onclick=()=>{
-      saveTime();
-      if(run.i===run.qs.length-1){
-        if(confirm("确定交卷？本模块不能再回来改。")) finishStage();
-      }else{ run.i++; run.t0=Date.now(); drawRun(); }
+      saveTime(); unfreeze();
+      if(last){
+        if(run.mock){ if(confirm("确定交卷？本模块不能再回来改。")) finishStage(); }
+        else endRun();
+      }else{ run.i++; drawRun(); }
     };
     foot.appendChild(nb);
+    if(!run.mock){
+      const sw = el("button","ghost","立刻看这题答案");
+      sw.onclick=()=>{ run.blind=false; if(st.picked) submit(); else drawRun(); };
+      foot.insertBefore(sw, nb);
+    }
   }else if(!st.sub){
     const sb = el("button","primary","提交"); sb.id="submitbtn";
     sb.disabled = !st.picked; sb.onclick=submit;
@@ -1838,16 +1920,20 @@ function drawRun(){
   }else{
     const nb = el("button","primary", run.i===run.qs.length-1? "完成":"下一题");
     nb.onclick=()=>{
-      saveTime();
+      saveTime(); unfreeze();
       if(run.i===run.qs.length-1) endRun();
-      else { run.i++; run.t0=Date.now(); drawRun(); }
+      else { run.i++; drawRun(); }
     };
     foot.appendChild(nb);
   }
   root.appendChild(foot);
 }
 
-function saveTime(){ const st=run.state[run.i]; st.ms += Date.now()-run.t0; }
+function saveTime(){
+  if(run.frozen) return;                       // 看解析的时间不计入答题用时
+  const st=run.state[run.i]; st.ms += Date.now()-run.t0;
+}
+function unfreeze(){ run.frozen=false; run.t0=Date.now(); }
 
 function normSpr(v){
   return String(v).trim().replace(/\s+/g,"").replace(/^\+/,"").replace(/^0+(?=\d)/,"");
@@ -1864,13 +1950,14 @@ function sprMatch(input, keys){
 }
 
 async function submit(){
-  if(run.mock) return;                 // 模考交卷前不判分
+  if(run.mock || run.blind) return;    // 模考和「做完再出答案」模式都不当场判分
   const q = run.qs[run.i], st = run.state[run.i];
   if(q.ty==="spr"){ const inp=$("#sprin"); st.picked = inp? inp.value.trim() : st.picked; }
   if(!st.picked) return;
   saveTime(); run.t0 = Date.now();
   st.ok = q.ty==="spr" ? sprMatch(st.picked, q.an) : q.an.includes(st.picked);
   st.sub = true;
+  run.frozen = true;                   // 从这一刻起到点下一题为止不计时
   st.aid = q.id + "-" + Date.now().toString(36);
   await recordAttempt({
     aid: st.aid, qid:q.id, eid:q.eid, sec:q.sec, dom:q.dom, sk:q.sk, df:q.df, bd:q.bd, ty:q.ty,
@@ -2751,6 +2838,7 @@ function openBrowse(qs, label){
   const root=$("#view-run"); root.innerHTML="";
   $("#view-run").classList.remove("hide");
   document.body.style.overflow="hidden";
+  try{ history.pushState({v:view, run:1}, "", "#view"); }catch(e){}
   const bar = el("div","runbar");
   bar.innerHTML = `<span class="qn">只看不做</span><span class="tag">${esc(label)}</span>
                    <span class="tag">${qs.length} 题</span>`;
@@ -2877,8 +2965,135 @@ function runRx(spec){
   startRun(qs, {label: spec.label + `（Hard ${hardN}/${qs.length}）`, timed:false});
 }
 
+/* ============ 生词本 ============
+   在题目文字上划选，弹出按钮存进生词本，连同那句话的上下文一起存。 */
+function sentenceAround(node, word){
+  let e = node.nodeType===3 ? node.parentElement : node;
+  while(e && !/^(P|LI|TD|TH|DIV)$/.test(e.tagName) ) e = e.parentElement;
+  const full = (e ? e.textContent : "").replace(/\s+/g," ").trim();
+  if(!full) return word;
+  const i = full.indexOf(word);
+  if(i < 0) return full.slice(0, 240);
+  // 往两边找到句子边界
+  let a = full.lastIndexOf(".", i); const a2 = full.lastIndexOf("?", i); const a3 = full.lastIndexOf("!", i);
+  a = Math.max(a, a2, a3);
+  let b = full.length;
+  for(const p of [".", "?", "!"]){ const j = full.indexOf(p, i+word.length); if(j>=0) b = Math.min(b, j+1); }
+  return full.slice(a+1, b).trim() || full.slice(0,240);
+}
+
+let vocabPop = null;
+function killVocabPop(){ if(vocabPop){ vocabPop.remove(); vocabPop = null; } }
+
+function initVocabSelection(){
+  document.addEventListener("mouseup", e=>{
+    if(e.target && e.target.closest && e.target.closest("#vocabpop")) return;
+    setTimeout(()=>{
+      const sel = window.getSelection();
+      const text = sel ? String(sel).replace(/\s+/g," ").trim() : "";
+      killVocabPop();
+      if(!text || text.length<2 || text.length>80) return;
+      const anchor = sel.anchorNode;
+      const host = anchor && (anchor.nodeType===3 ? anchor.parentElement : anchor);
+      if(!host || !host.closest(".qtext")) return;          // 只在题目正文里生效
+      const q = (run && run.qs[run.i]) || (previewQid && BYID[previewQid]) || null;
+      const r = sel.getRangeAt(0).getBoundingClientRect();
+      const pop = el("div"); pop.id="vocabpop";
+      pop.style.left = Math.max(8, Math.min(window.innerWidth-190, r.left + r.width/2 - 90)) + "px";
+      pop.style.top  = (r.top > 70 ? r.top - 42 : r.bottom + 10) + "px";
+      const b = el("button","vpbtn", `＋ 存进生词本`);
+      b.onclick = ()=>{
+        const ctx = sentenceAround(anchor, text);
+        vocab = vocab.filter(v=>!(v.w===text && v.qid===(q&&q.id)));
+        vocab.push({w:text, ctx, qid:q?q.id:null, sk:q?q.sk:"", ts:Date.now()});
+        saveVocab(); killVocabPop();
+        if(sel.removeAllRanges) sel.removeAllRanges();
+        toast(`「${text.slice(0,18)}」已存进生词本`);
+      };
+      pop.appendChild(b);
+      document.body.appendChild(pop);
+      vocabPop = pop;
+    }, 10);
+  });
+  document.addEventListener("scroll", killVocabPop, true);
+}
+
+function renderVocab(app){
+  const head = el("div","pagehead");
+  head.innerHTML = `<div><h1>生词本</h1>
+    <p>练习或看题时划选一个词或短语就能存进来。每条都带它出现的那句原话；点「看原题」可以回到完整语境。</p></div>`;
+  app.appendChild(head);
+  if(!vocab.length){
+    app.appendChild(el("div","empty","还没有生词。做题时用鼠标划选不认识的词，会弹出「存进生词本」。"));
+    return;
+  }
+  const bar = el("div","selbar");
+  bar.appendChild(el("span","cnt", `${vocab.length} 条`));
+  bar.appendChild(el("div","spacer"));
+  const dl = el("button","ghost","导出 TXT");
+  dl.onclick=()=>{
+    const txt = vocab.slice().reverse().map(v=>
+      `${v.w}\n  语境：${v.ctx}\n  来自：${v.sk||"—"}  ${new Date(v.ts).toLocaleDateString("zh-CN")}\n`).join("\n");
+    saveFile(`生词本 ${todayKey()}.txt`, new Blob([txt],{type:"text/plain;charset=utf-8"}));
+  };
+  bar.appendChild(dl);
+  const clr = el("button","ghost","清空");
+  clr.onclick=()=>{ if(confirm(`删除全部 ${vocab.length} 条生词？`)){ vocab=[]; saveVocab(); render(); } };
+  bar.appendChild(clr);
+  app.appendChild(bar);
+
+  vocab.slice().reverse().forEach(v=>{
+    const c = el("div","vcard");
+    const hi = esc(v.ctx).replace(new RegExp(esc(v.w).replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"),
+      m=>`<mark>${m}</mark>`);
+    c.innerHTML = `<div class="vw">${esc(v.w)}</div>
+      <div class="vctx">${hi}</div>
+      <div class="vmeta">${esc(v.sk||"—")} · ${new Date(v.ts).toLocaleDateString("zh-CN")}</div>`;
+    const row = el("div","btnrow"); row.style.justifyContent="flex-start"; row.style.marginTop="9px";
+    if(v.qid && BYID[v.qid]){
+      const go = el("button","drillbtn","看原题");
+      go.onclick=()=>openFullscreen([BYID[v.qid]], "生词出处 · "+v.w, 0);
+      row.appendChild(go);
+    }
+    const del = el("button","drillbtn","删除");
+    del.onclick=()=>{ vocab=vocab.filter(x=>!(x.w===v.w&&x.ts===v.ts)); saveVocab(); render(); };
+    row.appendChild(del);
+    c.appendChild(row);
+    app.appendChild(c);
+  });
+}
+
+/* ============ 浏览器前进/后退 ============ */
+let navLock = false;
+function pushView(v){
+  if(navLock) return;
+  try{ history.pushState({v}, "", "#"+v); }catch(e){}
+}
+function initHistory(){
+  try{ history.replaceState({v:view}, "", "#"+view); }catch(e){}
+  window.addEventListener("popstate", ev=>{
+    navLock = true;
+    const rv = $("#view-run");
+    if(rv && !rv.classList.contains("hide")){      // 全屏/答题界面：后退 = 退出它
+      if(run && run.mock && !run.finished){ navLock=false; history.pushState({v:view},"","#"+view); return; }
+      rv.classList.add("hide"); rv.innerHTML=""; document.body.style.overflow="";
+      run = null; mockPlan = null;
+      render(); navLock = false; return;
+    }
+    const v = (ev.state && ev.state.v) || (location.hash||"#home").slice(1) || "home";
+    if(["home","log","paper","settings","source","vocab"].includes(v)){ view = v; render(); }
+    navLock = false;
+  });
+}
+
 /* ============ 错题本 / 标记 ============ */
-let logFilter = {sec:0, dom:"", onlyDue:false};
+let logFilter = {sec:0, dom:"", onlyDue:false, hideMastered:true};
+let folder = {by:"all", val:""};      // all | skill | session
+function toggleMastered(qid){
+  if(mastered[qid]) delete mastered[qid];
+  else { mastered[qid] = Date.now(); delete reviewQ[qid]; flushReview(); }
+  saveMastered();
+}
 let bulkMode  = false;      // 默认关闭，点「批量」才出勾选框
 let previewQid = null;
 
@@ -2897,7 +3112,7 @@ function questionPanel(q, a, opts){
   if(info) wrap.appendChild(el("div","qpcn", esc(info.cn)));
 
   const body = el("div","qpbody");
-  if(q.sti) body.appendChild(el("div","stimwrap", `<div class="qtext">${q.sti}</div>`));
+  if(q.sti && !opts.noStim) body.appendChild(el("div","stimwrap", `<div class="qtext">${q.sti}</div>`));
   body.appendChild(el("div","stemtext", `<div class="qtext">${q.ste}</div>`));
   if(q.ty!=="spr"){
     const ol = el("div","opts");
@@ -2928,6 +3143,7 @@ function openFullscreen(qs, label, startIdx){
   const root=$("#view-run"); root.innerHTML="";
   root.classList.remove("hide");
   document.body.style.overflow="hidden";
+  try{ history.pushState({v:view, run:1}, "", "#view"); }catch(e){}
   let i = startIdx||0;
   const draw=()=>{
     root.innerHTML="";
@@ -2944,13 +3160,23 @@ function openFullscreen(qs, label, startIdx){
     const doIt = el("button","ghost","做这道");
     doIt.onclick=()=>{ root.innerHTML=""; startRun([q],{label:q.sk,timed:false}); };
     bar.appendChild(doIt);
+    const dl1 = el("button","ghost","下载这道");
+    dl1.onclick=()=>exportDocx(dl1, [{q, a}], {title:"SAT 单题 · "+q.sk}, "");
+    bar.appendChild(dl1);
     const x = el("button","ghost","关闭");
     x.onclick=()=>{ root.classList.add("hide"); root.innerHTML=""; document.body.style.overflow=""; render(); };
     bar.appendChild(x);
     root.appendChild(bar);
-    const body = el("div","runbody single"); const pane=el("div","pane");
-    const inner = el("div","pane-inner"); inner.style.maxWidth="760px";
-    inner.appendChild(questionPanel(q, a));
+    const body = el("div","runbody"+(q.sti?"":" single"));
+    if(q.sti){
+      const lp = el("div","pane left");
+      const li = el("div","pane-inner");
+      li.appendChild(el("div","stimwrap", `<div class="qtext">${q.sti}</div>`));
+      lp.appendChild(li); body.appendChild(lp);
+    }
+    const pane=el("div","pane");
+    const inner = el("div","pane-inner"); inner.style.maxWidth="640px";
+    inner.appendChild(questionPanel(q, a, {noStim:true}));
     const nav = el("div","btnrow"); nav.style.marginTop="20px";
     const prev = el("button","ghost","上一题"); prev.disabled=i===0;
     prev.onclick=()=>{ i--; draw(); };
@@ -3007,21 +3233,33 @@ function renderLog(app){
     due.setAttribute("aria-pressed", logFilter.onlyDue);
     due.onclick=()=>{ logFilter.onlyDue=!logFilter.onlyDue; picked.clear(); render(); };
     bar.appendChild(due);
+    const hm=el("button","chip","隐藏已掌握");
+    hm.setAttribute("aria-pressed", logFilter.hideMastered);
+    hm.onclick=()=>{ logFilter.hideMastered=!logFilter.hideMastered; picked.clear(); render(); };
+    bar.appendChild(hm);
   }
   app.appendChild(bar);
 
+  // 文件夹键先算出来，并给 folder.val 一个默认值 —— 否则刚切到「按题型」时
+  // 过滤结果为空，会在渲染文件夹列表之前就提前返回，等于永远选不到
+  const folderKeyOf = x => folder.by==="skill" ? x.q.sk : ((x.a && x.a.session) || "（无记录）");
+  const folderCounts = {};
+  if(folder.by!=="all") items.forEach(x=>{ const k=folderKeyOf(x); folderCounts[k]=(folderCounts[k]||0)+1; });
+  const folderKeys = Object.keys(folderCounts).sort((a,b)=>folderCounts[b]-folderCounts[a]);
+  if(folder.by!=="all" && (!folder.val || !folderCounts[folder.val])) folder.val = folderKeys[0] || "";
+
+  const inFolder = x => folder.by==="all" ? true : folderKeyOf(x)===folder.val;
   const list = items.filter(x=>
     (!logFilter.sec || x.q.sec===logFilter.sec) &&
     (!logFilter.dom || x.q.dom===logFilter.dom) &&
-    (!logFilter.onlyDue || (reviewQ[x.qid] && reviewQ[x.qid].due<=Date.now())));
+    (!(logFilter.hideMastered && listTab==="wrong") || !mastered[x.qid]) &&
+    (!logFilter.onlyDue || (reviewQ[x.qid] && reviewQ[x.qid].due<=Date.now())) &&
+    inFolder(x));
 
-  if(!list.length){
-    app.appendChild(el("div","empty", listTab==="wrong"
-      ? "还没有符合条件的错题。" : "还没有标记过的题。答题时点右上角「标记」就会收到这里。"));
-    return;
-  }
+  const emptyList = !list.length;
   const shown = list.slice(0,200);
-  if(!previewQid || !shown.some(x=>x.qid===previewQid)) previewQid = shown[0].qid;
+  if(shown.length && (!previewQid || !shown.some(x=>x.qid===previewQid))) previewQid = shown[0].qid;
+  else if(!shown.length) previewQid = null;
 
   // —— 工具条：批量开关 + 批量操作 ——
   const tb = el("div","selbar");
@@ -3063,7 +3301,36 @@ function renderLog(app){
 
   // —— 左右两栏 ——
   const split = el("div","logsplit");
+  const leftCol = el("div","logleft");
+
+  // —— 文件夹：全部 / 按题型 / 按作业 ——
+  const fold = el("div","folders");
+  const fTabs = el("div","gtabs"); fTabs.style.marginBottom="8px";
+  [["all","全部"],["skill","按题型"],["session","按作业"]].forEach(([k,t])=>{
+    const b=el("button",null,t);
+    b.setAttribute("aria-current", folder.by===k?"page":"false");
+    b.onclick=()=>{ folder={by:k,val:""}; picked.clear(); previewQid=null; render(); };
+    fTabs.appendChild(b);
+  });
+  fold.appendChild(fTabs);
+  if(folder.by!=="all"){
+    if(folderKeys.length){
+      const fl = el("div","folderlist");
+      folderKeys.forEach(k=>{
+        const b = el("button","folderitem"+(folder.val===k?" on":""));
+        b.innerHTML = `<span class="fname">${esc(k)}</span><span class="fcount num">${folderCounts[k]}</span>`;
+        b.onclick=()=>{ folder.val=k; picked.clear(); previewQid=null; render(); };
+        fl.appendChild(b);
+      });
+      fold.appendChild(fl);
+    }else{
+      fold.appendChild(el("div","hint","还没有可以分组的记录。"));
+    }
+  }
+  leftCol.appendChild(fold);
+
   const left = el("div","loglist");
+  left.dataset.keepscroll = "loglist";
   shown.forEach(x=>{
     const q=x.q, a=x.a, rv=reviewQ[x.qid];
     const days = rv ? Math.ceil((rv.due-Date.now())/DAY) : null;
@@ -3077,6 +3344,7 @@ function renderLog(app){
     meta.innerHTML = `
       <div class="lrtop">
         <span class="lrsk">${esc(q.sk)}</span>
+        ${mastered[x.qid]? '<span class="okflag">✓</span>':''}
         ${marks[x.qid]? '<span class="markflag">标</span>':''}
       </div>
       <div class="lrsub">${esc(DOMAINS[q.dom].name)} · ${DIFF[q.df]||q.df}${q.bd?" · band "+q.bd:""}${
@@ -3087,13 +3355,17 @@ function renderLog(app){
                       else previewQid=x.qid; render(); };
     left.appendChild(row);
   });
+  if(emptyList) left.appendChild(el("div","empty", listTab==="wrong"
+    ? "这个分组下没有错题。" : "还没有标记过的题。答题时点右上角「标记」就会收到这里。"));
   if(list.length>200) left.appendChild(el("div","empty",`共 ${list.length} 题，只显示 200 条。`));
-  split.appendChild(left);
+  leftCol.appendChild(left);
+  split.appendChild(leftCol);
 
   // 右栏预览
   const right = el("div","logpreview");
   const cur = shown.find(x=>x.qid===previewQid);
-  if(cur){
+  if(!cur){ right.appendChild(el("div","empty","左边选一道题，这里显示题目和官方解析。")); }
+  else {
     const top = el("div","pvtop");
     const fs = el("button","drillbtn","全屏");
     fs.onclick=()=>openFullscreen(shown.map(x=>x.q), listTab==="wrong"?"错题本":"标记题",
@@ -3108,7 +3380,13 @@ function renderLog(app){
     };
     const mk = el("button","drillbtn", marks[cur.qid]?"取消标记":"标记");
     mk.onclick=()=>{ toggleMark(cur.qid); render(); };
-    [fs,doIt,same,mk].forEach(b=>top.appendChild(b));
+    const ok = el("button","drillbtn"+(mastered[cur.qid]?" ondone":""),
+                  mastered[cur.qid]? "✓ 已掌握（点击撤销）" : "✓ 标为已掌握");
+    ok.title = "打对号表示这道题已经搞懂了，会移出复习队列";
+    ok.onclick=()=>{ toggleMastered(cur.qid); render(); };
+    const dl1 = el("button","drillbtn","下载这道");
+    dl1.onclick=()=>exportDocx(dl1, [{q:cur.q, a:cur.a}], {title:"SAT 单题 · "+cur.q.sk}, "");
+    [fs,doIt,same,ok,mk,dl1].forEach(b=>top.appendChild(b));
     if(listTab==="wrong" && reviewQ[cur.qid]){
       const rm=el("button","drillbtn","移出错题集");
       rm.onclick=async()=>{ delete reviewQ[cur.qid]; await flushReview(); previewQid=null; render(); };
@@ -3484,6 +3762,28 @@ function renderSettings(app){
   card.appendChild(foot);
   b1.appendChild(card); app.appendChild(b1);
 
+  /* --- 练习方式 --- */
+  const bp = el("section","block");
+  bp.innerHTML = `<div class="blockhead"><h2>练习方式</h2>
+    <span class="note">影响普通练习（模考永远是做完才出答案）</span></div>`;
+  const cp = el("div","builder");
+  const fr = el("div","field");
+  fr.appendChild(el("label",null,"答案什么时候出"));
+  const rr = el("div","chips");
+  [["end","做完整组再出答案"],["now","交一题出一题"]].forEach(([k,t])=>{
+    const b=el("button","chip",t);
+    b.setAttribute("aria-pressed", (settings.reveal||"end")===k);
+    b.onclick=()=>{ settings.reveal=k; saveSettings(); render(); };
+    rr.appendChild(b);
+  });
+  fr.appendChild(rr);
+  fr.appendChild(el("div","hint",
+    (settings.reveal==="now")
+      ? "交一题出一题。<b>看解析的时间不计入答题用时</b> —— 提交后计时器会停表，显示「看解析·停表」，点下一题才重新走。"
+      : "整组做完才统一判分，中途可以自由翻回去改答案，和真考一样。答题界面上仍有「立刻看这题答案」可以临时切换。"));
+  cp.appendChild(fr);
+  bp.appendChild(cp); app.appendChild(bp);
+
   /* --- 讲题偏好 --- */
   const b2 = el("section","block");
   b2.innerHTML = `<div class="blockhead"><h2>讲题偏好</h2>
@@ -3650,7 +3950,7 @@ function renderSource(app){
 }
 
 /* ============ wiring ============ */
-function gotoView(v){ view=v; picked.clear(); render(); }
+function gotoView(v){ if(v!==view) pushView(v); view=v; picked.clear(); render(); }
 document.querySelectorAll("nav.tabs button").forEach(b=>
   b.onclick = ()=>gotoView(b.dataset.view));
 $("#logoutbtn").onclick = ()=>{ if(confirm("退出当前账户？记录留在本机，下次登录还在。")) logout(); };
