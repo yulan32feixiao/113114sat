@@ -320,6 +320,37 @@ select,input[type=number]{font:inherit;font-size:13px;padding:6px 9px;border:1px
 .viewcard .vans{margin-top:12px;padding-top:12px;border-top:1px solid var(--rule)}
 .markflag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;
   padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink)}
+.skgroup{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:22px 0 8px;
+  padding-bottom:7px;border-bottom:1px solid var(--rule-2)}
+.skgroup .dn{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.skgroup .dm{font-family:var(--f-num);font-size:11px;color:var(--ink-2)}
+.skcard{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);margin-bottom:6px;overflow:hidden}
+.skcard.open{border-color:var(--rule-2);box-shadow:var(--shadow)}
+.skhead{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:11px 14px}
+.skhead:hover{background:var(--surface-2)}
+.skmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sktop{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sktop b{font-size:13.5px;font-weight:600}
+.kindtag{font-size:10px;font-weight:600;padding:1.5px 7px;border-radius:99px;letter-spacing:.02em}
+.kindtag.rule{background:var(--accent-soft);color:var(--accent-ink)}
+.kindtag.read{background:var(--surface-2);color:var(--ink-2)}
+.skcn{font-size:12px;color:var(--ink-3);line-height:1.45}
+.sknums{display:flex;align-items:center;gap:16px;flex:none}
+@media(max-width:760px){.sknums{display:none}}
+.skn{display:flex;flex-direction:column;align-items:flex-end;gap:0}
+.skn b{font-family:var(--f-num);font-size:13px;font-weight:600;line-height:1.2}
+.skn i{font-style:normal;font-size:9.5px;color:var(--ink-3)}
+.skchev{color:var(--ink-3);font-size:11px;flex:none;width:12px}
+.skbody{padding:2px 16px 16px;border-top:1px solid var(--rule)}
+.skdesc{font-size:13px;line-height:1.7;color:var(--ink-2);margin:13px 0 9px;max-width:68ch}
+.skdata{background:var(--surface-2);border-radius:var(--r);padding:12px 14px;margin:14px 0}
+.skline{font-size:12.5px;color:var(--ink-2);margin-top:5px;line-height:1.6}
+.skline b{color:var(--ink);font-family:var(--f-num)}
+.skline.dim{color:var(--ink-3)}
+.skctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;
+  align-items:start;margin-top:14px;padding-top:14px;border-top:1px solid var(--rule)}
+.skbody footer{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:15px;
+  padding-top:14px;border-top:1px solid var(--rule)}
 .timestrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:1px;background:var(--rule);
   border:1px solid var(--rule);border-radius:var(--r);overflow:hidden;margin-bottom:22px}
 .timestrip div{background:var(--surface);padding:13px 14px}
@@ -457,6 +488,73 @@ const DOMAINS = {
   ZZ: {sec:0,name:"导入试卷",                          cn:"自己上传的题", share:"不计入官方考点统计"},
 };
 const DOM_ORDER = ["INI","CAS","SEC","EOI","H","P","Q","S"];
+/* ============ 考点说明 ============
+   kind: rule = 规则有限、可以背完，见效快；read = 靠阅读精度或概念判断，长线。
+   这是本工具自己的分类，不是 College Board 的。中文描述据官方考点定义改写。 */
+const SKILL_INFO = {
+"Words in Context":{kind:"read",cn:"高频学术词在语境里的精确含义",
+ d:"填一个词或短语，或问某个词在文中是什么意思。四个选项往往都「说得通」，只有一个和上下文的逻辑严丝合缝。考的是词义精度，不是词汇量。"},
+"Text Structure and Purpose":{kind:"read",cn:"某句话在文中起什么作用",
+ d:"问整段的结构，或某一句的功能。答的是「这句话干了什么事」——举例、让步、转折、下定义、提出反驳——而不是「这句话说了什么」。把内容当功能选，就会错。"},
+"Cross-Text Connections":{kind:"read",cn:"两篇文章之间的立场关系",
+ d:"两段文字对同一话题态度不同，问第二篇作者会怎么回应第一篇。必须同时抓准两边各自的立场，只读懂一边必错。"},
+"Central Ideas and Details":{kind:"read",cn:"主旨，或文中某个具体细节",
+ d:"主旨题要选覆盖全文的那一个——只覆盖一半的选项是最常见的陷阱。细节题则要回原文定位，不能凭印象。"},
+"Command of Evidence":{kind:"read",cn:"哪条证据真的支持（或削弱）这个结论",
+ d:"给一个结论或假设，问哪个选项最能支持/削弱它。分文字证据和图表数据两种。关键是选项必须真的指向那个结论，而不只是「和话题有关」。R&W 里题量最大的一块。"},
+"Inferences":{kind:"read",cn:"补上逻辑上必然的结论",
+ d:"文末留空让你补一句。只能用文中给出的信息推，不能加任何外部常识。选项里最「合理」的那个常常不是答案，必然成立的那个才是。"},
+"Boundaries":{kind:"rule",cn:"句子边界：句号、分号、冒号还是逗号加连词",
+ d:"两个独立分句之间该用什么标点，以及从句边界、逗号误用（comma splice）、插入语的成对逗号。规则数量有限，能背完——这是 R&W 里性价比最高的一块。"},
+"Form, Structure, and Sense":{kind:"rule",cn:"主谓一致、时态、代词、修饰语、平行结构",
+ d:"动词与主语的数是否一致、时态是否合理、代词指代是否明确、修饰语有没有错位、并列成分是否平行、所有格撇号。同样可以穷举。"},
+"Rhetorical Synthesis":{kind:"rule",cn:"按指定的写作目的从笔记里选句子",
+ d:"给一串笔记要点和一个明确的写作目的，选最能完成那个目的的句子。先把任务读清楚（是 specify how、generalization、introduce 还是 contrast），再看每个选项实际完成的是什么功能——大量选项内容都对但功能错。"},
+"Transitions":{kind:"rule",cn:"填连接词，先判断前后逻辑关系",
+ d:"先判断前后两句是因果、转折、递进、举例还是让步，再选对应的词。难点集中在对比类连接词之间的区分（however / by contrast / similarly / likewise）。"},
+
+"Linear equations in one variable":{kind:"rule",cn:"一元一次方程",
+ d:"含分数系数、括号展开、移项；以及无解和无穷多解的判别条件。"},
+"Linear equations in two variables":{kind:"rule",cn:"二元一次方程与直线",
+ d:"斜率、截距、点斜式、由两点求方程、平行与垂直的斜率关系。"},
+"Linear functions":{kind:"rule",cn:"线性函数建模与解读",
+ d:"给实际情境写出 f(x)=mx+b，或反过来解释斜率和截距在那个情境里代表什么。Algebra 里题量最大的一块。"},
+"Systems of two linear equations in two variables":{kind:"rule",cn:"二元一次方程组",
+ d:"代入法、消元法，以及方程组无解 / 有唯一解 / 无穷多解的条件判断。"},
+"Linear inequalities in one or two variables":{kind:"rule",cn:"一次不等式与不等式组",
+ d:"解集、数轴表示、二元不等式的可行域，以及实际情境中的约束条件。"},
+"Equivalent expressions":{kind:"rule",cn:"代数式恒等变形",
+ d:"因式分解、通分、指数与根式化简、多项式除法。本质是把式子换个样子写，不改变值。"},
+"Nonlinear equations in one variable and systems of equations in two variables":{kind:"rule",cn:"二次/根式/分式方程与曲线交点",
+ d:"二次方程、根式方程、分式方程、绝对值方程的解；以及一条直线和一条曲线交点个数的判别。"},
+"Nonlinear functions":{kind:"rule",cn:"二次、指数、多项式函数的性质",
+ d:"顶点、对称轴、零点、增长率，函数图像的平移与伸缩，以及三种不同形式（标准式/顶点式/因式式）各自能直接读出什么。Math 里题量最大的一块。"},
+"Ratios, rates, proportional relationships, and units":{kind:"rule",cn:"比率、单位换算、正比例",
+ d:"多为实际情境。单位换算题容易在中间某一步栽跟头，建议把单位写出来一路约。"},
+"Percentages":{kind:"rule",cn:"百分比增减与互推",
+ d:"百分比变化、连续两次变化、由变化后的值反推原值。「先涨 20% 再跌 20% 不等于回到原点」这类是高频考点。"},
+"One-variable data: Distributions and measures of center and spread":{kind:"read",cn:"平均数、中位数、标准差，以及谁受离群值影响",
+ d:"重点不在算，而在判断：加入一个极端值之后，平均数、中位数、极差、标准差各自怎么变。"},
+"Two-variable data: Models and scatterplots":{kind:"read",cn:"散点图与拟合模型",
+ d:"读趋势、判断是线性还是指数增长、用模型做预测、解释斜率在实际情境里的含义。"},
+"Probability and conditional probability":{kind:"rule",cn:"概率与条件概率",
+ d:"多数是给一张双向频数表让你算。条件概率的关键是看清分母被限制在哪一行或哪一列。"},
+"Inference from sample statistics and margin of error":{kind:"read",cn:"样本推断与误差范围",
+ d:"用样本推断总体、置信区间、误差范围。考的是概念判断（比如增大样本量会让误差范围变小），基本不用算。题库里只有 15 道。"},
+"Evaluating statistical claims: Observational studies and experiments":{kind:"read",cn:"能不能下因果结论",
+ d:"观察性研究和随机对照实验的区别：什么样的设计才支持因果结论、结论能推广到哪个总体。题库里只有 3 道，但真考几乎每次都有。"},
+"Area and volume":{kind:"rule",cn:"面积、表面积、体积",
+ d:"含组合体，以及相似图形边长比、面积比、体积比之间的关系。公式表考场上有，不用背。"},
+"Lines, angles, and triangles":{kind:"rule",cn:"平行线、角、三角形",
+ d:"平行线与截线的角关系、三角形内角和、相似与全等的判定、特殊直角三角形。"},
+"Right triangles and trigonometry":{kind:"rule",cn:"勾股定理与三角函数",
+ d:"sin/cos/tan 的定义、30-60-90 与 45-45-90 的边长比、互余角的正余弦关系 sin(x)=cos(90°−x)。"},
+"Circles":{kind:"rule",cn:"圆的方程与角度弧长",
+ d:"圆的标准方程与配方、弧长与扇形面积、圆心角与圆周角的关系、弧度制换算。"}
+};
+const KIND = {rule:{t:"规则型",d:"规则有限，可以背完，见效快"},
+              read:{t:"理解型",d:"靠阅读精度或概念判断，需要长期积累"}};
+
 const DIFF = {E:"Easy", M:"Medium", H:"Hard"};
 const TARGET = {1:750, 2:780};
 const EXAM_DATE = "2026-12-05";
@@ -864,6 +962,198 @@ function daysLeft(){
   return Math.max(0, Math.ceil((new Date(EXAM_DATE+"T00:00:00") - new Date())/864e5));
 }
 
+/* ============ 考点卡片 ============ */
+let skillOpen = null;              // 当前展开的 dom|sk
+let groupBy = "domain";            // domain | kind
+const skCfg = {};                  // 每张卡自己的出题参数
+
+function skillBandStats(dom, sk){
+  const by = {};
+  attempts.filter(a=>a.dom===dom && a.sk===sk).forEach(a=>{
+    const b=a.bd||0; (by[b]=by[b]||{n:0,ok:0}); by[b].n++; if(a.ok) by[b].ok++;
+  });
+  return by;
+}
+function worstBands(dom, sk){
+  const by = skillBandStats(dom,sk);
+  return Object.entries(by).filter(([b,s])=>s.n>=2 && s.ok/s.n < 0.7)
+    .sort((a,b)=>(a[1].ok/a[1].n)-(b[1].ok/b[1].n))
+    .map(([b,s])=>`band ${b}（${s.ok}/${s.n}）`);
+}
+function sampleQ(dom, sk){
+  const pool = BANK.filter(q=>q.dom===dom && q.sk===sk && q.df==="M");
+  const p2 = pool.length? pool : BANK.filter(q=>q.dom===dom && q.sk===sk);
+  return p2[(Math.random()*p2.length)|0];
+}
+
+function skillCard(s){
+  const key = s.dom+"|"+s.sk;
+  const info = SKILL_INFO[s.sk] || {kind:"read", cn:"", d:""};
+  const st = skillStats(s.dom, s.sk);
+  const open = skillOpen===key;
+  const c = el("div","skcard"+(open?" open":""));
+
+  // —— 折叠态 ——
+  const head = el("button","skhead");
+  head.setAttribute("aria-expanded", open);
+  const cls = st.acc==null?"":(st.acc>=85?"good":(st.acc<65?"warn":""));
+  head.innerHTML = `
+    <span class="skmain">
+      <span class="sktop">
+        <b>${esc(s.sk)}</b>
+        <span class="kindtag ${info.kind}">${KIND[info.kind].t}</span>
+      </span>
+      <span class="skcn">${esc(info.cn)}</span>
+    </span>
+    <span class="sknums">
+      <span class="skn"><b class="num">${s.total}</b><i>题库</i></span>
+      <span class="skn"><b class="num">${st.n||"—"}</b><i>已做</i></span>
+      <span class="skn"><b class="num">${st.sec? st.sec+"s":"—"}</b><i>均时</i></span>
+      <span class="acc">
+        <span class="accbar"><i class="${cls}" style="width:${st.acc??0}%"></i></span>
+        <span class="accnum ${st.acc==null?"dim":""}">${st.acc==null?"—":st.acc+"%"}</span>
+      </span>
+    </span>
+    <span class="skchev">${open?"▾":"▸"}</span>`;
+  head.onclick = ()=>{ skillOpen = open? null : key; render(); };
+  c.appendChild(head);
+  if(!open) return c;
+
+  // —— 展开态 ——
+  const body = el("div","skbody");
+  body.appendChild(el("p","skdesc", esc(info.d)));
+  body.appendChild(el("div","hint", `<b>${KIND[info.kind].t}</b> — ${KIND[info.kind].d}（本工具的分类，非 College Board 官方）`));
+
+  // 你在这个考点上的实际数据
+  const data = el("div","skdata");
+  const bs = skillBandStats(s.dom, s.sk);
+  const worst = worstBands(s.dom, s.sk);
+  if(st.n){
+    const strip = el("div","bands"); strip.style.marginTop="8px";
+    BANDS.forEach(b=>{
+      const x = bs[b.n];
+      const acc = x? Math.round(x.ok/x.n*100) : null;
+      const d = el("div","band"+(x?" on":""));
+      d.style.background = `var(--b${b.n})`;
+      d.innerHTML = `<span>${b.n}</span><span class="r">${x? acc+"%":"—"}</span>`;
+      d.title = x? `band ${b.n}：做了 ${x.n} 题，对 ${x.ok} 题` : `band ${b.n}：还没做过`;
+      strip.appendChild(d);
+    });
+    data.innerHTML = `<div class="eyebrow">你在这个考点上的表现</div>
+      <div class="skline">做了 <b>${st.n}</b> 题 · 正确率 <b>${st.acc}%</b> · 平均 <b>${st.sec} 秒/题</b>
+        ${worst.length? ` · 失分集中在 <b>${esc(worst.slice(0,3).join("、"))}</b>` : ` · 各分数段都还稳`}</div>`;
+    data.appendChild(strip);
+    const total = BANK.filter(q=>q.dom===s.dom && q.sk===s.sk).length;
+    data.appendChild(el("div","hint", `这个考点题库共 ${total} 题，你做过 ${new Set(attempts.filter(a=>a.dom===s.dom&&a.sk===s.sk).map(a=>a.qid)).size} 道。`));
+  }else{
+    data.innerHTML = `<div class="eyebrow">你在这个考点上的表现</div>
+      <div class="skline dim">还没做过这个考点的题。先来 10 道看看底子。</div>`;
+  }
+  body.appendChild(data);
+
+  // 每张卡自己的出题参数
+  if(!skCfg[key]) skCfg[key] = {diffs:[], bands:[], n:10, timed:false, fresh:true};
+  const k = skCfg[key];
+  const ctrl = el("div","skctrl");
+  const chips = (label, items, sel, tog)=>{
+    const f = el("div","field");
+    f.appendChild(el("label",null,label));
+    const r = el("div","chips");
+    items.forEach(it=>{
+      const b = el("button","chip", it.t);
+      b.setAttribute("aria-pressed", sel.includes(it.v));
+      b.onclick=()=>{ tog(it.v); render(); };
+      r.appendChild(b);
+    });
+    f.appendChild(r); return f;
+  };
+  const tg=(arr,v)=>{ const i=arr.indexOf(v); i<0? arr.push(v) : arr.splice(i,1); };
+  ctrl.appendChild(chips("难度",[{t:"Easy",v:"E"},{t:"Medium",v:"M"},{t:"Hard",v:"H"}],k.diffs,v=>tg(k.diffs,v)));
+  ctrl.appendChild(chips("分数段",[1,2,3,4,5,6,7].map(n=>({t:String(n),v:n})),k.bands,v=>tg(k.bands,v)));
+  const fn = el("div","field");
+  fn.appendChild(el("label",null,"题量"));
+  const nin = el("input"); nin.type="number"; nin.min=1; nin.max=60; nin.value=k.n;
+  nin.onchange=()=>{ k.n=Math.max(1,Math.min(60,+nin.value||10)); render(); };
+  fn.appendChild(nin);
+  ctrl.appendChild(fn);
+  const fo = el("div","field");
+  fo.appendChild(el("label",null,"选项"));
+  const t1=el("label","toggle"); const c1=el("input"); c1.type="checkbox"; c1.checked=k.timed;
+  c1.onchange=()=>{ k.timed=c1.checked; };
+  t1.appendChild(c1); t1.appendChild(document.createTextNode("计时"));
+  const t2=el("label","toggle"); const c2=el("input"); c2.type="checkbox"; c2.checked=k.fresh;
+  c2.onchange=()=>{ k.fresh=c2.checked; render(); };
+  t2.appendChild(c2); t2.appendChild(document.createTextNode("跳过做过的"));
+  fo.appendChild(t1); fo.appendChild(t2);
+  ctrl.appendChild(fo);
+  body.appendChild(ctrl);
+
+  const cfg2 = {sec:s.sec, doms:[s.dom], skills:[s.sk], bands:k.bands, diffs:k.diffs, n:k.n, fresh:k.fresh};
+  const avail = poolSize(cfg2);
+  const foot = el("footer");
+  foot.appendChild(el("span","avail", `符合条件 <b>${avail}</b> 题 · 本次取 ${Math.min(avail,k.n)} 题`));
+  const smp = el("button","ghost","看一道样题");
+  smp.onclick=()=>{ const q=sampleQ(s.dom,s.sk); if(q) openBrowse([q], s.sk+" · 样题"); };
+  foot.appendChild(smp);
+  const look = el("button","ghost","只看不做");
+  look.disabled = !avail;
+  look.onclick=()=>{ const qs=pick(cfg2); if(qs.length) openBrowse(qs, s.sk); };
+  foot.appendChild(look);
+  const go = el("button","primary","开始练");
+  go.disabled = !avail;
+  go.onclick=()=>{ const qs=pick(cfg2); if(!qs.length) return toast("没有符合条件的题");
+                   startRun(qs,{label:s.sk, timed:k.timed}); };
+  foot.appendChild(go);
+  body.appendChild(foot);
+  c.appendChild(body);
+  return c;
+}
+
+function renderSkills(app){
+  const blk = el("section","block");
+  const hd = el("div","blockhead");
+  hd.innerHTML = `<h2>考点</h2>
+    <span class="note">${SKILLS.length} 个官方考点 · 点开看这个考点考什么、你做得怎么样，并单独配难度和题量</span>`;
+  blk.appendChild(hd);
+
+  const sw = el("div","gtabs"); sw.style.maxWidth="320px"; sw.style.marginBottom="14px";
+  [["domain","按官方 domain 分"],["kind","按规则型 / 理解型分"]].forEach(([k,t])=>{
+    const b=el("button",null,t);
+    b.setAttribute("aria-current", groupBy===k?"page":"false");
+    b.onclick=()=>{ groupBy=k; render(); };
+    sw.appendChild(b);
+  });
+  blk.appendChild(sw);
+
+  if(groupBy==="domain"){
+    DOM_ORDER.forEach(dom=>{
+      const list = SKILLS.filter(s=>s.dom===dom);
+      if(!list.length) return;
+      const ds = statsFor(r=>r.dom===dom);
+      const h = el("div","skgroup");
+      h.innerHTML = `<span class="dn">${esc(DOMAINS[dom].name)}</span>
+        <span class="dm">${esc(DOMAINS[dom].cn)} · ${esc(DOMAINS[dom].share)}</span>
+        <span class="dm" style="margin-left:auto">${ds.n? ds.acc+"% · "+ds.ok+"/"+ds.n : "还没做过"}</span>`;
+      blk.appendChild(h);
+      list.forEach(s=>blk.appendChild(skillCard(s)));
+    });
+  }else{
+    [["rule","规则型"],["read","理解型"]].forEach(([kind,label])=>{
+      const list = SKILLS.filter(s=>(SKILL_INFO[s.sk]||{}).kind===kind);
+      if(!list.length) return;
+      const rows = attempts.filter(a=>(SKILL_INFO[a.sk]||{}).kind===kind);
+      const ok = rows.filter(a=>a.ok).length;
+      const h = el("div","skgroup");
+      h.innerHTML = `<span class="dn">${label}</span>
+        <span class="dm">${esc(KIND[kind].d)} · ${list.length} 个考点</span>
+        <span class="dm" style="margin-left:auto">${rows.length? pct(ok,rows.length)+"% · "+ok+"/"+rows.length : "还没做过"}</span>`;
+      blk.appendChild(h);
+      list.sort((a,b)=>b.total-a.total).forEach(s=>blk.appendChild(skillCard(s)));
+    });
+  }
+  app.appendChild(blk);
+}
+
 function renderHome(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div>
@@ -949,46 +1239,7 @@ function renderHome(app){
   strip.appendChild(bandMeter(2,"Math", 700));
   app.appendChild(strip);
 
-  // skill table
-  const blk = el("section","block");
-  blk.innerHTML = `<div class="blockhead"><h2>考点掌握度</h2>
-    <span class="note">${SKILLS.length} 个官方考点 · 正确率基于你在本工具里的作答</span></div>`;
-  const wrap = el("div","tablewrap");
-  const t = el("table","skills");
-  t.innerHTML = `<thead><tr>
-    <th style="width:34%">考点</th><th class="r">题库</th><th class="r">已做</th>
-    <th class="r" style="width:170px">正确率</th><th class="r">均时</th><th></th></tr></thead>`;
-  const tb = el("tbody");
-  DOM_ORDER.forEach(dom=>{
-    const d = DOMAINS[dom];
-    const ds = statsFor(r=>r.dom===dom);
-    const dr = el("tr","domrow");
-    dr.innerHTML = `<td colspan="3"><span class="dn">${esc(d.name)}</span>
-        <span class="dm" style="margin-left:8px">${esc(d.cn)} · ${esc(d.share)}</span></td>
-      <td colspan="3" class="r"><span class="dm">${ds.n? ds.acc+"% · "+ds.ok+"/"+ds.n : "—"}</span></td>`;
-    tb.appendChild(dr);
-    SKILLS.filter(s=>s.dom===dom).forEach(s=>{
-      const st = skillStats(s.dom,s.sk);
-      const cls = st.acc==null?"":(st.acc>=85?"good":(st.acc<65?"warn":""));
-      const tr = el("tr","skillrow");
-      tr.innerHTML = `
-        <td><div class="skname">${esc(s.sk)}</div></td>
-        <td class="r skmeta">${s.total}</td>
-        <td class="r skmeta">${st.n||"—"}</td>
-        <td class="r"><div class="acc">
-            <div class="accbar"><i class="${cls}" style="width:${st.acc??0}%"></i></div>
-            <span class="accnum ${st.acc==null?"dim":""}">${st.acc==null?"—":st.acc+"%"}</span>
-          </div></td>
-        <td class="r skmeta">${st.sec? st.sec+"s":"—"}</td>
-        <td class="r"></td>`;
-      const b = el("button","drillbtn","练");
-      b.onclick=()=>startRun(pick({sec:s.sec,doms:[s.dom],skills:[s.sk],bands:[],diffs:[],n:10,fresh:true}),
-        {label:s.sk, timed:false});
-      tr.lastElementChild.appendChild(b);
-      tb.appendChild(tr);
-    });
-  });
-  t.appendChild(tb); wrap.appendChild(t); blk.appendChild(wrap); app.appendChild(blk);
+  renderSkills(app);
 
   // 模考
   const mblk = el("section","block");
