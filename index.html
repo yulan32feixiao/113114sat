@@ -53,6 +53,10 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .eyebrow{font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3)}
 .num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 .hide{display:none!important}
+/* College Board 的题干用 <span class="sr-only">blank</span> 给屏幕阅读器读「空格」，
+   页面上必须视觉隐藏，否则填空处会多出一个 blank 字样 */
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* ---------- shell ---------- */
 #topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:20px;
@@ -335,7 +339,27 @@ select,input[type=number]{font:inherit;font-size:13px;padding:6px 9px;border:1px
   border-radius:50%;background:var(--ok);color:#fff;font-size:9px;font-weight:700;flex:none}
 .drillbtn.ondone{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
 .dualtimer .q.froz{color:var(--accent)}
-#vocabpop{position:fixed;z-index:400}
+#vocabpop{position:fixed;z-index:400;display:flex;gap:5px}
+.vpbtn.hl{background:var(--accent);color:#fff}
+:root[data-theme="dark"] .vpbtn.hl,:root:not([data-theme="light"]) .vpbtn.hl{color:#12140F}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]) .vpbtn.hl{color:#fff}}
+mark.hl{background:#FDE68A;color:#3A2E0B;padding:0 1px;border-radius:2px;cursor:pointer}
+:root[data-theme="dark"] mark.hl,:root:not([data-theme="light"]) mark.hl{background:#6B5410;color:#F6E8C0}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]) mark.hl{background:#FDE68A;color:#3A2E0B}}
+mark.hl:hover{outline:1px solid var(--accent)}
+.splitter{cursor:col-resize;background:var(--rule);position:relative;transition:background .12s}
+.splitter::after{content:"";position:absolute;inset:0 -4px;}
+.splitter:hover,body.dragging .splitter{background:var(--accent)}
+body.dragging{cursor:col-resize;user-select:none}
+body.dragging .pane{pointer-events:none}
+@media(max-width:900px){.splitter{display:none}}
+.duegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px;margin:-14px 0 26px}
+.duebox{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:13px 15px}
+.dbtop{display:flex;align-items:baseline;gap:8px}
+.dbtop b{flex:1;font-size:13px;font-weight:600}
+.dbn{font-size:17px;font-weight:700;color:var(--accent);letter-spacing:-.02em}
+.dbcn{font-size:11.5px;color:var(--ink-3);margin-top:3px;line-height:1.45}
+.dbstat{font-family:var(--f-num);font-size:11px;color:var(--ink-2);margin-top:6px}
 .vpbtn{padding:7px 14px;background:var(--ink);color:var(--surface);border-radius:99px;
   font-size:12.5px;font-weight:600;box-shadow:var(--shadow);white-space:nowrap}
 .vpbtn:hover{background:var(--accent)}
@@ -691,6 +715,7 @@ async function boot(){
   $("#topsize").appendChild(sizeControl());
   applyScale();
   initVocabSelection();
+  initSplit();
   initHistory();
   $("#boot").remove();
 
@@ -905,6 +930,7 @@ function loadAll(){
   sessions = lsGet(K("sessions"), []);
   papers   = lsGet(K("papers"), []);
   marks    = lsGet(K("marks"), {});
+  hls      = lsGet(K("hls"), {});
   rx       = lsGet(K("rx"), []);
   papers.forEach(p=> (p.qs||[]).forEach(q=>{ BYID[q.id]=q; }));
   settings = Object.assign({key:"",model:"deepseek-v4-pro",base:"https://api.deepseek.com",pref:"",fb:[],
@@ -1289,11 +1315,35 @@ function renderHome(app){
         <span>错题集共 ${total} 题 · 答对进下一盒、答错退回第一天 · <span class="boxpips" style="display:inline-flex">${boxes}</span></span>
       </span>`;
     if(due.length){
-      const go = el("button","primary","开始复习");
+      const go = el("button","primary","全部复习");
       go.onclick=()=>startRun(due.slice(0,25), {label:"错题复习", timed:false, review:true});
       card.appendChild(go);
     }
     app.appendChild(card);
+
+    // 按考点拆开：先看清是哪个知识点不会，再决定练哪一块
+    if(due.length){
+      const bySk = {};
+      due.forEach(q=>{ (bySk[q.sk]=bySk[q.sk]||[]).push(q); });
+      const wrap = el("div","duegrid");
+      Object.entries(bySk).sort((a,b)=>b[1].length-a[1].length).forEach(([sk,qs])=>{
+        const info = SKILL_INFO[sk] || {};
+        const st = skillStats(qs[0].dom, sk);
+        const c = el("div","duebox");
+        c.innerHTML = `<div class="dbtop"><b>${esc(sk)}</b><span class="dbn num">${qs.length}</span></div>
+          <div class="dbcn">${esc(info.cn||"")}</div>
+          <div class="dbstat">${st.n? `这个考点你做过 ${st.n} 题，正确率 ${st.acc}%`:"这个考点还没统计"}</div>`;
+        const row = el("div","btnrow"); row.style.justifyContent="flex-start"; row.style.marginTop="9px";
+        const look = el("button","drillbtn","看看是什么不会");
+        look.onclick=()=>openFullscreen(qs, sk+" · 待复习", 0, {reveal:true});
+        const go2 = el("button","drillbtn","练这 "+qs.length+" 题");
+        go2.onclick=()=>startRun(qs, {label:"复习 · "+sk, timed:false, review:true});
+        row.appendChild(look); row.appendChild(go2);
+        c.appendChild(row);
+        wrap.appendChild(c);
+      });
+      app.appendChild(wrap);
+    }
   }
 
   // 学习时长
@@ -1473,6 +1523,21 @@ function app_rebuildBuilder(root){
   t2.appendChild(c2); t2.appendChild(document.createTextNode("计时（按考试节奏）")); opts.appendChild(t2);
   fields.appendChild(mk("题量", nIn));
   fields.appendChild(opts);
+
+  const fRev = el("div","field");
+  fRev.appendChild(el("label",null,"答案时机"));
+  const rrow = el("div","chips");
+  [["end","做完再出"],["now","交一题出一题"]].forEach(([k,t])=>{
+    const b=el("button","chip",t);
+    b.setAttribute("aria-pressed",(settings.reveal||"end")===k);
+    b.onclick=()=>{ settings.reveal=k; saveSettings(); app_rebuildBuilder(root); };
+    rrow.appendChild(b);
+  });
+  fRev.appendChild(rrow);
+  fRev.appendChild(el("div","hint", (settings.reveal==="now")
+    ? "提交一题立刻出答案，看解析时计时停表。"
+    : "整组做完才统一判分，中途可自由改答案。开始后不能中途查看答案。"));
+  fields.appendChild(fRev);
 
   const avail = poolSize(cfg);
   const foot = root.querySelector("#bfoot"); foot.innerHTML="";
@@ -1669,7 +1734,8 @@ function startRun(qs, opt){
 async function gradeAll(){
   for(let k=0;k<run.qs.length;k++){
     const q=run.qs[k], st=run.state[k];
-    if(st.sub || st.picked==null) { if(st.picked==null){ st.sub=true; st.ok=false; } continue; }
+    if(st.sub) continue;
+    if(st.picked==null || String(st.picked).trim()===""){ st.sub=true; st.ok=false; continue; }  // 没作答：不入库
     st.ok = q.ty==="spr" ? sprMatch(st.picked,q.an) : q.an.includes(st.picked);
     st.sub = true;
     st.aid = q.id+"-"+Date.now().toString(36)+"-"+k;
@@ -1692,8 +1758,9 @@ async function endRun(){
   const ok = done.filter(s=>s.ok).length;
   const activeMs = run.state.reduce((t,s)=>t+(s.ms||0),0);
   const secs = Math.round(activeMs/1000);
-  logSession({label:run.label, mode:"drill", startTs:run.total0, endTs:Date.now(),
-              activeMs, n:done.length, ok});
+  const answered = run.state.filter(s=>s.picked!=null && String(s.picked).trim()!=="").length;
+  if(answered) logSession({label:run.label, mode:"drill", startTs:run.total0, endTs:Date.now(),
+                           activeMs, n:answered, ok});   // 一题没做就不记这一场
   drawSummary(done.length, ok, secs);
 }
 function closeRun(){
@@ -1816,19 +1883,22 @@ function drawRun(){
     const li = el("div","pane-inner");
     li.appendChild(el("div","stimwrap",`<div class="qtext">${q.sti}</div>`));
     left.appendChild(li); body.appendChild(left);
+    body.appendChild(makeSplitter(body));
   }
   const right = el("div","pane");
   const ri = el("div","pane-inner"); ri.id="qpane";
   right.appendChild(ri); body.appendChild(right);
   root.appendChild(body);
+  applySplit(body);
 
   if(run.paused){
     const veil = el("div"); veil.id="pauseveil";
-    const done = run.state.filter(s=>s.sub).length;
+    const usedMs = run.state.reduce((t,s)=>t+(s.ms||0),0);
+    const us = Math.round(usedMs/1000);
     veil.innerHTML = `<div class="inner">
         <div class="eyebrow" style="margin-bottom:8px">已暂停</div>
-        <div class="big">${done} / ${run.qs.length}</div>
-        <p>计时已停止，题目已隐藏。回来后按「继续」接着做。</p>
+        <div class="big">${String((us/60)|0).padStart(2,"0")}:${String(us%60).padStart(2,"0")}</div>
+        <p>已用时。计时已停止，题目已隐藏，回来后按「继续」接着做。</p>
       </div>`;
     const go = el("button","primary","继续答题");
     go.style.margin="0 auto"; go.onclick=resumeRun;
@@ -1879,6 +1949,7 @@ function drawRun(){
   }
 
   if(st.sub) drawReview(ri, q, st);
+  applyHighlights(root, q.id);
   applyScale();
 
   // footer
@@ -1908,11 +1979,6 @@ function drawRun(){
       }else{ run.i++; drawRun(); }
     };
     foot.appendChild(nb);
-    if(!run.mock){
-      const sw = el("button","ghost","立刻看这题答案");
-      sw.onclick=()=>{ run.blind=false; if(st.picked) submit(); else drawRun(); };
-      foot.insertBefore(sw, nb);
-    }
   }else if(!st.sub){
     const sb = el("button","primary","提交"); sb.id="submitbtn";
     sb.disabled = !st.picked; sb.onclick=submit;
@@ -2555,6 +2621,7 @@ async function collectMedia(html, media){
 }
 
 function normalizeMathFigs(root){
+  root.querySelectorAll(".sr-only").forEach(e=>e.remove());   // 屏幕阅读器专用文本不进 Word
   root.querySelectorAll("math").forEach(m=>{
     const a = m.getAttribute("alttext");
     m.replaceWith(document.createTextNode(a? " "+a+" " : " [公式] "));
@@ -2965,6 +3032,95 @@ function runRx(spec){
   startRun(qs, {label: spec.label + `（Hard ${hardN}/${qs.length}）`, timed:false});
 }
 
+/* ============ 划词高亮 ============
+   高亮按题保存，重新打开这道题还在。文章和选项都能划。 */
+let hls = {};        // qid -> [被高亮的字符串]
+const saveHls = ()=> lsSet(K("hls"), hls);
+
+function addHl(qid, text){
+  if(!qid || !text) return;
+  hls[qid] = hls[qid] || [];
+  if(!hls[qid].includes(text)) hls[qid].push(text);
+  saveHls();
+}
+function removeHl(qid, text){
+  if(!hls[qid]) return;
+  hls[qid] = hls[qid].filter(t=>t!==text);
+  if(!hls[qid].length) delete hls[qid];
+  saveHls();
+}
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/* 在已渲染好的 DOM 里把保存过的片段包成 <mark> */
+function applyHighlights(root, qid){
+  const list = hls[qid];
+  if(!root || !list || !list.length) return;
+  const re = new RegExp("(" + list.slice().sort((a,b)=>b.length-a.length).map(reEsc).join("|") + ")", "g");
+  root.querySelectorAll(".qtext").forEach(box=>{
+    const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT, null);
+    const todo = [];
+    let n;
+    while((n = walker.nextNode())){
+      if(n.parentElement.closest("mark,.sr-only,math,svg")) continue;
+      if(re.test(n.nodeValue)){ re.lastIndex = 0; todo.push(n); }
+      re.lastIndex = 0;
+    }
+    todo.forEach(node=>{
+      const frag = document.createDocumentFragment();
+      let last = 0, m;
+      re.lastIndex = 0;
+      while((m = re.exec(node.nodeValue))){
+        if(m.index > last) frag.appendChild(document.createTextNode(node.nodeValue.slice(last, m.index)));
+        const mk = document.createElement("mark");
+        mk.className = "hl"; mk.textContent = m[0]; mk.title = "点击取消高亮";
+        mk.onclick = e=>{ e.stopPropagation(); removeHl(qid, m[0]);
+                          if(run) drawRun(); else render(); };
+        frag.appendChild(mk);
+        last = m.index + m[0].length;
+      }
+      if(last < node.nodeValue.length) frag.appendChild(document.createTextNode(node.nodeValue.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+    });
+  });
+}
+
+/* ============ 可拖拽分栏 ============ */
+let splitRatio = 50;
+function initSplit(){
+  const v = +lsGet("b7_split", 50);
+  if(v>=20 && v<=80) splitRatio = v;
+}
+function applySplit(body){
+  if(!body || body.classList.contains("single")) return;
+  body.style.gridTemplateColumns = `${splitRatio}fr 6px ${100-splitRatio}fr`;
+}
+function makeSplitter(body){
+  const h = el("div","splitter");
+  h.title = "拖动调整左右宽度，双击复位";
+  let dragging = false;
+  const move = e=>{
+    if(!dragging) return;
+    const r = body.getBoundingClientRect();
+    const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left;
+    splitRatio = Math.max(20, Math.min(80, Math.round(x / r.width * 100)));
+    applySplit(body);
+  };
+  const up = ()=>{
+    if(!dragging) return;
+    dragging = false;
+    document.body.classList.remove("dragging");
+    lsSet("b7_split", splitRatio);
+  };
+  h.onmousedown = e=>{ e.preventDefault(); dragging=true; document.body.classList.add("dragging"); };
+  h.ondblclick = ()=>{ splitRatio = 50; applySplit(body); lsSet("b7_split", 50); };
+  document.addEventListener("mousemove", move);
+  document.addEventListener("mouseup", up);
+  h.addEventListener("touchstart", e=>{ dragging=true; }, {passive:true});
+  document.addEventListener("touchmove", move, {passive:true});
+  document.addEventListener("touchend", up);
+  return h;
+}
+
 /* ============ 生词本 ============
    在题目文字上划选，弹出按钮存进生词本，连同那句话的上下文一起存。 */
 function sentenceAround(node, word){
@@ -2999,9 +3155,18 @@ function initVocabSelection(){
       const q = (run && run.qs[run.i]) || (previewQid && BYID[previewQid]) || null;
       const r = sel.getRangeAt(0).getBoundingClientRect();
       const pop = el("div"); pop.id="vocabpop";
-      pop.style.left = Math.max(8, Math.min(window.innerWidth-190, r.left + r.width/2 - 90)) + "px";
-      pop.style.top  = (r.top > 70 ? r.top - 42 : r.bottom + 10) + "px";
-      const b = el("button","vpbtn", `＋ 存进生词本`);
+      pop.style.left = Math.max(8, Math.min(window.innerWidth-260, r.left + r.width/2 - 125)) + "px";
+      pop.style.top  = (r.top > 70 ? r.top - 44 : r.bottom + 10) + "px";
+      const hb = el("button","vpbtn hl", "✎ 高亮");
+      hb.onclick = ()=>{
+        if(!q) return toast("这里不能高亮");
+        addHl(q.id, text);
+        killVocabPop();
+        if(sel.removeAllRanges) sel.removeAllRanges();
+        if(run && !run.finished) drawRun(); else render();
+      };
+      pop.appendChild(hb);
+      const b = el("button","vpbtn", "＋ 生词本");
       b.onclick = ()=>{
         const ctx = sentenceAround(anchor, text);
         vocab = vocab.filter(v=>!(v.w===text && v.qid===(q&&q.id)));
@@ -3097,8 +3262,10 @@ function toggleMastered(qid){
 let bulkMode  = false;      // 默认关闭，点「批量」才出勾选框
 let previewQid = null;
 
+let showMistakes = false;     // 错题本默认不标错，打开才显示当时错在哪
 function questionPanel(q, a, opts){
   opts = opts||{};
+  const reveal = opts.reveal!=null ? opts.reveal : true;
   const wrap = el("div","qpanel");
   const hd = el("div","qphead");
   hd.innerHTML = `
@@ -3118,19 +3285,24 @@ function questionPanel(q, a, opts){
     const ol = el("div","opts");
     q.op.forEach((o,k)=>{
       const L="ABCD"[k], right=q.an.includes(L), mine=a && a.picked===L;
-      const d = el("div","opt"+(right?" correct":(mine?" chosen-wrong":"")));
+      const cls = reveal ? (right?" correct":(mine?" chosen-wrong":"")) : "";
+      const d = el("div","opt"+cls);
       d.innerHTML = `<span class="ltr">${L}</span><span class="oc qtext">${o}</span>`;
       ol.appendChild(d);
     });
     body.appendChild(ol);
   }
-  const ans = el("div","vans");
-  ans.innerHTML = `<div class="eyebrow">正确答案：${esc(q.an.join(" / "))}${
-    a? `　·　你当时选了 ${esc(a.picked||"未答")}　·　用时 ${Math.round((a.ms||0)/1000)} 秒`:""}</div>`;
-  body.appendChild(ans);
-  body.appendChild(el("div","rat",
-    `<div class="eyebrow">College Board 官方解析</div><div class="qtext">${q.ra}</div>`));
-  if(notesByQ[q.id]){
+  if(reveal){
+    const ans = el("div","vans");
+    ans.innerHTML = `<div class="eyebrow">正确答案：${esc(q.an.join(" / "))}${
+      a? `　·　你当时选了 ${esc(a.picked||"未答")}　·　用时 ${Math.round((a.ms||0)/1000)} 秒`:""}</div>`;
+    body.appendChild(ans);
+    body.appendChild(el("div","rat",
+      `<div class="eyebrow">College Board 官方解析</div><div class="qtext">${q.ra}</div>`));
+  }else{
+    body.appendChild(el("div","hint","已隐藏答案和解析。想看当时错在哪，点上方「标注错误」。"));
+  }
+  if(reveal && notesByQ[q.id]){
     const n = el("div","explain");
     n.innerHTML = `<div class="eyebrow">AI 拆解</div><div class="body">${esc(notesByQ[q.id].text)}</div>`;
     body.appendChild(n);
@@ -3139,7 +3311,8 @@ function questionPanel(q, a, opts){
   return wrap;
 }
 
-function openFullscreen(qs, label, startIdx){
+function openFullscreen(qs, label, startIdx, opt){
+  let fsReveal = !opt || opt.reveal!==false;
   const root=$("#view-run"); root.innerHTML="";
   root.classList.remove("hide");
   document.body.style.overflow="hidden";
@@ -3153,6 +3326,9 @@ function openFullscreen(qs, label, startIdx){
     bar.innerHTML = `<span class="qn">${i+1} / ${qs.length}</span><span class="tag">${esc(label)}</span>`;
     bar.appendChild(el("div","spacer"));
     bar.appendChild(sizeControl());
+    const rvb = el("button","ghost", fsReveal? "隐藏答案":"显示答案");
+    rvb.onclick=()=>{ fsReveal=!fsReveal; draw(); };
+    bar.appendChild(rvb);
     const mk = el("button","ghost", marks[q.id]?"已标记":"标记");
     mk.setAttribute("aria-pressed", !!marks[q.id]);
     mk.onclick=()=>{ toggleMark(q.id); draw(); };
@@ -3173,10 +3349,11 @@ function openFullscreen(qs, label, startIdx){
       const li = el("div","pane-inner");
       li.appendChild(el("div","stimwrap", `<div class="qtext">${q.sti}</div>`));
       lp.appendChild(li); body.appendChild(lp);
+      body.appendChild(makeSplitter(body));
     }
     const pane=el("div","pane");
     const inner = el("div","pane-inner"); inner.style.maxWidth="640px";
-    inner.appendChild(questionPanel(q, a, {noStim:true}));
+    inner.appendChild(questionPanel(q, a, {noStim:true, reveal: fsReveal}));
     const nav = el("div","btnrow"); nav.style.marginTop="20px";
     const prev = el("button","ghost","上一题"); prev.disabled=i===0;
     prev.onclick=()=>{ i--; draw(); };
@@ -3185,7 +3362,7 @@ function openFullscreen(qs, label, startIdx){
     nav.appendChild(prev); nav.appendChild(next);
     inner.appendChild(nav);
     pane.appendChild(inner); body.appendChild(pane); root.appendChild(body);
-    applyScale();
+    applySplit(body); applyHighlights(root, q.id); applyScale();
   };
   draw();
 }
@@ -3201,7 +3378,10 @@ function renderLog(app){
    ["marked",`标记 ${Object.keys(marks).length}`]].forEach(([k,t])=>{
     const b=el("button",null,t);
     b.setAttribute("aria-current", listTab===k?"page":"false");
-    b.onclick=()=>{ listTab=k; picked.clear(); previewQid=null; render(); };
+    b.onclick=()=>{ listTab=k; picked.clear(); previewQid=null;
+                    folder={by:"all",val:""};            // 分组是按标签页算的，切页要重置
+                    logFilter.dom=""; logFilter.sec=0;   // 否则上一页的筛选会把这页全滤空
+                    render(); };
     tabs.appendChild(b);
   });
   app.appendChild(tabs);
@@ -3242,10 +3422,16 @@ function renderLog(app){
 
   // 文件夹键先算出来，并给 folder.val 一个默认值 —— 否则刚切到「按题型」时
   // 过滤结果为空，会在渲染文件夹列表之前就提前返回，等于永远选不到
-  const folderKeyOf = x => folder.by==="skill" ? x.q.sk : ((x.a && x.a.session) || "（无记录）");
+  const folderKeyOf = x =>
+    folder.by==="skill"   ? x.q.sk :
+    folder.by==="month"   ? (x.a && x.a.ts ? new Date(x.a.ts).toISOString().slice(0,7).replace("-"," 年 ")+" 月"
+                                           : "（无日期）")
+                          : ((x.a && x.a.session) || "（无记录）");
   const folderCounts = {};
   if(folder.by!=="all") items.forEach(x=>{ const k=folderKeyOf(x); folderCounts[k]=(folderCounts[k]||0)+1; });
-  const folderKeys = Object.keys(folderCounts).sort((a,b)=>folderCounts[b]-folderCounts[a]);
+  const folderKeys = Object.keys(folderCounts).sort(folder.by==="month"
+    ? (a,b)=> b.localeCompare(a)
+    : (a,b)=> folderCounts[b]-folderCounts[a]);
   if(folder.by!=="all" && (!folder.val || !folderCounts[folder.val])) folder.val = folderKeys[0] || "";
 
   const inFolder = x => folder.by==="all" ? true : folderKeyOf(x)===folder.val;
@@ -3253,7 +3439,7 @@ function renderLog(app){
     (!logFilter.sec || x.q.sec===logFilter.sec) &&
     (!logFilter.dom || x.q.dom===logFilter.dom) &&
     (!(logFilter.hideMastered && listTab==="wrong") || !mastered[x.qid]) &&
-    (!logFilter.onlyDue || (reviewQ[x.qid] && reviewQ[x.qid].due<=Date.now())) &&
+    (listTab!=="wrong" || !logFilter.onlyDue || (reviewQ[x.qid] && reviewQ[x.qid].due<=Date.now())) &&
     inFolder(x));
 
   const emptyList = !list.length;
@@ -3306,7 +3492,7 @@ function renderLog(app){
   // —— 文件夹：全部 / 按题型 / 按作业 ——
   const fold = el("div","folders");
   const fTabs = el("div","gtabs"); fTabs.style.marginBottom="8px";
-  [["all","全部"],["skill","按题型"],["session","按作业"]].forEach(([k,t])=>{
+  [["all","全部"],["skill","按题型"],["month","按月份"],["session","按作业"]].forEach(([k,t])=>{
     const b=el("button",null,t);
     b.setAttribute("aria-current", folder.by===k?"page":"false");
     b.onclick=()=>{ folder={by:k,val:""}; picked.clear(); previewQid=null; render(); };
@@ -3367,6 +3553,11 @@ function renderLog(app){
   if(!cur){ right.appendChild(el("div","empty","左边选一道题，这里显示题目和官方解析。")); }
   else {
     const top = el("div","pvtop");
+    const rv = el("button","drillbtn"+(showMistakes?" ondone":""),
+                  showMistakes? "✓ 标注错误（已开）" : "标注错误");
+    rv.title = "默认隐藏答案和你当时的选择，方便重新思考；打开后显示正确项、你选错的项和官方解析";
+    rv.onclick=()=>{ showMistakes=!showMistakes; render(); };
+    top.appendChild(rv);
     const fs = el("button","drillbtn","全屏");
     fs.onclick=()=>openFullscreen(shown.map(x=>x.q), listTab==="wrong"?"错题本":"标记题",
                                   shown.findIndex(x=>x.qid===previewQid));
@@ -3394,8 +3585,9 @@ function renderLog(app){
     }
     right.appendChild(top);
     const sc = el("div","pvscroll");
-    sc.appendChild(questionPanel(cur.q, cur.a));
+    sc.appendChild(questionPanel(cur.q, cur.a, {reveal: showMistakes}));
     right.appendChild(sc);
+    applyHighlights(sc, cur.q.id);
   }
   split.appendChild(right);
   app.appendChild(split);
