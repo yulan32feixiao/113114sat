@@ -2,3 +2,5 @@ raw.json
 bank.json
 *.b64
 .DS_Store
+node_modules/
+package-lock.json
