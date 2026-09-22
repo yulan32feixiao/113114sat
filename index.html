@@ -339,6 +339,8 @@ select,input[type=number]{font:inherit;font-size:13px;padding:6px 9px;border:1px
   border-radius:50%;background:var(--ok);color:#fff;font-size:9px;font-weight:700;flex:none}
 .drillbtn.ondone{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
 .dualtimer .q.froz{color:var(--accent)}
+.ghost.danger{color:var(--bad)}
+.ghost.danger:hover{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
 #vocabpop{position:fixed;z-index:400;display:flex;gap:5px}
 .vpbtn.hl{background:var(--accent);color:#fff}
 :root[data-theme="dark"] .vpbtn.hl,:root:not([data-theme="light"]) .vpbtn.hl{color:#12140F}
@@ -768,7 +770,7 @@ async function registerUser(name, pw){
   if(u[name]) throw new Error("这个用户名已经有人用了");
   const salt = [...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,"0")).join("");
   u[name] = {salt, hash: await hashPw(pw, salt), created: Date.now(),
-             level:{rw:4, math:7, source:"default"}};
+             level:{rw:null, math:null, source:"unset"}};
   setUsers(u);
   return name;
 }
@@ -788,8 +790,10 @@ async function changePw(name, oldPw, newPw){
 }
 function userLevel(){
   const u = users()[CURRENT];
-  return (u && u.level) || {rw:4, math:7, source:"default"};
+  const lv = (u && u.level) || {};
+  return {rw: lv.rw ?? null, math: lv.math ?? null, source: lv.source || "unset"};
 }
+const levelSet = ()=>{ const lv=userLevel(); return lv.rw!=null || lv.math!=null; };
 function setUserLevel(level){
   const all = users();
   if(!all[CURRENT]) return;
@@ -931,6 +935,7 @@ function loadAll(){
   papers   = lsGet(K("papers"), []);
   marks    = lsGet(K("marks"), {});
   hls      = lsGet(K("hls"), {});
+  cfg.timed = lsGet(K("timed"), false);
   rx       = lsGet(K("rx"), []);
   papers.forEach(p=> (p.qs||[]).forEach(q=>{ BYID[q.id]=q; }));
   settings = Object.assign({key:"",model:"deepseek-v4-pro",base:"https://api.deepseek.com",pref:"",fb:[],
@@ -963,12 +968,18 @@ async function saveNote(qid, text){
 }
 
 /* ---- 错题集：Leitner 盒子 + 到期复习 ---- */
+function snapReview(qid){          // 供「放弃不保存」回滚用，只记第一次
+  if(!run || !run.prevReview) return;
+  if(!(qid in run.prevReview)) run.prevReview[qid] = reviewQ[qid] ? JSON.parse(JSON.stringify(reviewQ[qid])) : null;
+}
 function collect(qid, why){
+  snapReview(qid);
   const now = Date.now(), cur = reviewQ[qid];
   reviewQ[qid] = {box:1, due: now + BOX_DAYS[1]*DAY, adds:(cur&&cur.adds||0)+1, lastWhy: why||null, ts:now};
 }
 function gradeReview(qid, ok){
   const r = reviewQ[qid]; if(!r) return;
+  snapReview(qid);
   if(ok){
     const nb = Math.min(5, (r.box||1)+1);
     if(nb>=5){ delete reviewQ[qid]; return; }
@@ -1359,8 +1370,9 @@ function renderHome(app){
 
   // band meters
   const strip = el("div","strip");
-  strip.appendChild(bandMeter(1,"Reading and Writing", 500));
-  strip.appendChild(bandMeter(2,"Math", 700));
+  const lv0 = userLevel();
+  strip.appendChild(bandMeter(1,"Reading and Writing", lv0.rw));
+  strip.appendChild(bandMeter(2,"Math", lv0.math));
   app.appendChild(strip);
 
   renderSkills(app);
@@ -1400,23 +1412,31 @@ function renderHome(app){
   app.appendChild(bblk);
 }
 
-function bandMeter(sec, title, current){
+function bandMeter(sec, title, curBand){
   const m = el("div","meter");
-  const cur = BANDS.find(b=> current>=b.lo && (b.n===7 || current < BANDS[b.n].lo));
+  const cur = curBand!=null ? BANDS[curBand-1] : null;
   const tgt = BANDS.find(b=> TARGET[sec]>=b.lo && (b.n===7 || TARGET[sec] < BANDS[b.n].lo));
   const st = statsFor(r=>r.sec===sec && !r.mockOnly && r.dom!=="ZZ");
   const hi = statsFor(r=>r.sec===sec && r.dom!=="ZZ" && r.bd>= (sec===1?5:6));
   m.innerHTML = `<header><h3>${title}</h3>
-    <span class="now num">现 ${current} → 目标 ${TARGET[sec]}</span></header>`;
+    <span class="now num">${cur? `band ${cur.n}（${sec===1?cur.rw:cur.m}）→ 目标 ${TARGET[sec]}`
+                               : "水平未设置"}</span></header>`;
   const bands = el("div","bands");
   BANDS.forEach(b=>{
-    const d = el("div","band"+(b.n<=cur.n?" on":"")+(b.n===cur.n?" cur":"")+(b.n===tgt.n?" tgt":""));
+    const on = cur ? b.n<=cur.n : false;
+    const d = el("div","band"+(on?" on":"")+(cur&&b.n===cur.n?" cur":"")+(b.n===tgt.n?" tgt":""));
     d.style.background = `var(--b${b.n})`;
     d.innerHTML = `<span>${b.n}</span><span class="r">${sec===1?b.rw:b.m}</span>`;
     d.title = `Band ${b.n} · ${sec===1?b.rw:b.m}（Skills Insight, July 2026, Table 3）`;
     bands.appendChild(d);
   });
   m.appendChild(bands);
+  if(!cur){
+    const hint = el("div","hint");
+    hint.style.marginTop="10px";
+    hint.innerHTML = `还没有水平数据。<b>做一次完整模考</b>会自动评出来，也可以到「设置 → 账户与水平」自己指定。`;
+    m.appendChild(hint);
+  }
   const f = el("footer");
   f.innerHTML = `
     <div><b class="num">${st.n}</b><span>已做题</span></div>
@@ -1427,11 +1447,11 @@ function bandMeter(sec, title, current){
 }
 
 /* ---------- drill builder ---------- */
-let cfg = {sec:1, doms:[], skills:[], bands:[], diffs:[], n:15, fresh:true, timed:true};
+let cfg = {sec:1, doms:[], skills:[], bands:[], diffs:[], n:15, fresh:true, timed:false};
 function cfgFromLevel(){
   const lv = userLevel();
   const b = cfg.sec===1 ? lv.rw : lv.math;
-  cfg.bands = [b, b+1, b+2].filter(x=>x>=1 && x<=7);   // 当前水平 + 往上两档
+  cfg.bands = b==null ? [] : [b, b+1, b+2].filter(x=>x>=1 && x<=7);  // 当前水平 + 往上两档
   return cfg.bands;
 }
 
@@ -1453,7 +1473,7 @@ function builder(){
   const b = el("div","builder");
   const presets = el("div","presets");
   [
-    {t:"按我的水平", s:"当前 band 往上两档 · 随水平自动变", c:"__level"},
+    {t:"按我的水平", s:"当前 band 往上两档（需先有水平数据）", c:"__level"},
     {t:"R&W 目标区间", s:"band 5–7 · 全部 4 个 domain", c:{sec:1,doms:[],skills:[],bands:[5,6,7],diffs:[],n:15}},
     {t:"证据与推断",   s:"Information and Ideas · band 5–7", c:{sec:1,doms:["INI"],skills:[],bands:[5,6,7],diffs:[],n:15}},
     {t:"语法规范",     s:"Standard English Conventions", c:{sec:1,doms:["SEC"],skills:[],bands:[],diffs:[],n:20}},
@@ -1462,7 +1482,10 @@ function builder(){
   ].forEach(p=>{
     const btn = el("button","preset", `<b>${esc(p.t)}</b><span>${esc(p.s)}</span>`);
     btn.onclick = ()=>{
-      if(p.c==="__level"){ cfg.doms=[]; cfg.skills=[]; cfg.diffs=[]; cfgFromLevel(); }
+      if(p.c==="__level"){
+        if(!levelSet()){ toast("还没有水平数据 —— 做一次完整模考，或去设置里自己指定"); return; }
+        cfg.doms=[]; cfg.skills=[]; cfg.diffs=[]; cfgFromLevel();
+      }
       else cfg={...cfg,...p.c,fresh:true};
       app_rebuildBuilder(b);
     };
@@ -1643,6 +1666,7 @@ function beginStage(){
     blind:true, mock:true, stage:st,
     deadline: Date.now() + st.minutes*60000,
     state: st.qs.map(()=>({picked:null, sub:false, ok:null, ms:0, marked:false, struck:[], aid:null, why:null})),
+    written:[], prevReview:{},
     t0: Date.now(), total0: Date.now(), pausedTotal:0
   };
   $("#view-run").classList.remove("hide");
@@ -1723,6 +1747,7 @@ function startRun(qs, opt){
   sessionAnalysis = "";
   const blind = opt.blind!=null ? opt.blind : (settings.reveal!=="now");
   run = { qs, i:0, label:opt.label, timed:opt.timed!==false, finished:false, review:!!opt.review, blind,
+          written:[], prevReview:{},
           state: qs.map(()=>({picked:null, sub:false, ok:null, ms:0, marked:false, struck:[], aid:null, why:null})),
           t0: Date.now(), total0: Date.now() };
   $("#view-run").classList.remove("hide");
@@ -1739,6 +1764,7 @@ async function gradeAll(){
     st.ok = q.ty==="spr" ? sprMatch(st.picked,q.an) : q.an.includes(st.picked);
     st.sub = true;
     st.aid = q.id+"-"+Date.now().toString(36)+"-"+k;
+    run.written.push(st.aid);
     await recordAttempt({aid:st.aid, qid:q.id, eid:q.eid, sec:q.sec, dom:q.dom, sk:q.sk,
       df:q.df, bd:q.bd, ty:q.ty, picked:st.picked, correct:q.an.join("|"), ok:st.ok,
       ms:st.ms, why:null, ts:Date.now(), session:run.label, review:!!run.review});
@@ -1763,6 +1789,40 @@ async function endRun(){
                            activeMs, n:answered, ok});   // 一题没做就不记这一场
   drawSummary(done.length, ok, secs);
 }
+/* 中途放弃这一场：把这次写进去的作答和错题集改动撤回。
+   划的重点、标记、生词本是独立的收藏，保留不动。 */
+async function cancelRun(){
+  if(!run) return;
+  const answered = run.state.filter(s=>s.picked!=null && String(s.picked).trim()!=="").length;
+  const wrote = (run.written||[]).length;
+  const msg = run.mock
+    ? "放弃这次模考？已答的部分不会留下任何记录。"
+    : (wrote
+        ? `放弃这一场？已判分的 ${wrote} 题会从作答记录里删掉，这次新进错题集的题也会撤回。\n（划的重点、标记和生词本保留。）`
+        : `放弃这一场？${answered? "已选的 "+answered+" 题":"这次"}不会计入任何记录。\n（划的重点、标记和生词本保留。）`);
+  if(!confirm(msg)) return;
+
+  if(wrote){
+    const kill = new Set(run.written);
+    attempts = attempts.filter(a=>!kill.has(a.aid));
+    saveLocal();
+  }
+  const prev = run.prevReview || {};
+  Object.keys(prev).forEach(qid=>{
+    if(prev[qid]===null) delete reviewQ[qid];
+    else reviewQ[qid] = prev[qid];
+  });
+  if(Object.keys(prev).length) await flushReview();
+
+  run.finished = true;
+  if(run._t) clearInterval(run._t);
+  run = null; mockPlan = null;
+  $("#view-run").classList.add("hide"); $("#view-run").innerHTML="";
+  document.body.style.overflow="";
+  toast("已放弃，没有留下记录");
+  render();
+}
+
 function closeRun(){
   if(run && run._t) clearInterval(run._t);
   run=null;
@@ -1864,7 +1924,12 @@ function drawRun(){
   const pz = el("button","ghost", run.paused? "继续":"暂停");
   pz.onclick = ()=> run.paused? resumeRun() : pauseRun();
   bar.appendChild(pz);
+  const cx = el("button","ghost danger","放弃");
+  cx.title = "中途退出，不保存这一场的任何记录";
+  cx.onclick = cancelRun;
+  bar.appendChild(cx);
   const x = el("button","ghost", run.mock? "交卷":"结束");
+  x.title = run.mock? "提前交卷并出报告" : "结束并保存这一场";
   x.onclick = ()=>{
     if(run.mock && !confirm("提前交卷？本模块剩下的题会按未作答计分。")) return;
     endRun();
@@ -1902,7 +1967,11 @@ function drawRun(){
       </div>`;
     const go = el("button","primary","继续答题");
     go.style.margin="0 auto"; go.onclick=resumeRun;
-    veil.querySelector(".inner").appendChild(go);
+    const inner0 = veil.querySelector(".inner");
+    inner0.appendChild(go);
+    const gv = el("button","ghost danger","放弃这一场");
+    gv.style.margin="10px auto 0"; gv.onclick=cancelRun;
+    inner0.appendChild(gv);
     body.appendChild(veil);
     const foot0 = el("div","runfoot");
     foot0.appendChild(el("span","avail", run.mock
@@ -2025,6 +2094,7 @@ async function submit(){
   st.sub = true;
   run.frozen = true;                   // 从这一刻起到点下一题为止不计时
   st.aid = q.id + "-" + Date.now().toString(36);
+  run.written.push(st.aid);
   await recordAttempt({
     aid: st.aid, qid:q.id, eid:q.eid, sec:q.sec, dom:q.dom, sk:q.sk, df:q.df, bd:q.bd, ty:q.ty,
     picked: st.picked, correct: q.an.join("|"), ok: st.ok, ms: st.ms, why: null,
@@ -3855,16 +3925,27 @@ function renderSettings(app){
     const f = el("div","field");
     f.appendChild(el("label",null,title+" 水平"));
     const sel = el("select");
-    sel.innerHTML = BANDS.map(b=>
+    sel.innerHTML = `<option value="" ${lv[key]==null?"selected":""}>未设置</option>` +
+      BANDS.map(b=>
       `<option value="${b.n}" ${lv[key]===b.n?"selected":""}>band ${b.n} · ${secn===1?b.rw:b.m}</option>`).join("");
-    sel.onchange=()=>{ const cur=userLevel(); cur[key]=+sel.value; cur.source="manual"; setUserLevel(cur); toast("已更新，出题默认分数段跟着变"); };
+    sel.onchange=()=>{
+      const cur=userLevel();
+      cur[key] = sel.value==="" ? null : +sel.value;
+      cur.source = (cur.rw==null && cur.math==null) ? "unset" : "manual";
+      setUserLevel(cur); render();
+      toast(sel.value===""? "已清空" : "已更新，出题默认分数段跟着变");
+    };
     f.appendChild(sel);
     lvRow.appendChild(f);
   });
   c0.appendChild(lvRow);
   c0.appendChild(el("div","hint",
-    `当前来源：${lv.source==="mock"?"最近一次模考评分":(lv.source==="manual"?"你手动设置":"默认值")}。
-     做完模考会自动更新，也可以随时手动改。出题器里的分数段筛选会以此为默认，但每次出题仍可单独调。`));
+    lv.source==="unset"
+      ? `<b>还没有水平数据。</b>水平只有两个来源：做一次<b>完整模考</b>由它评出来，或者在这里自己指定。
+         没有水平时，出题器不会替你限制分数段。`
+      : `当前来源：<b>${lv.source==="mock"?"最近一次模考评分":"你手动设置"}</b>。
+         做完模考会自动覆盖，也可以随时在这里改回来或清空。出题器的「按我的水平」预设以此为准，
+         但每次出题仍可单独调分数段。`));
   const pwRow = el("div","fields"); pwRow.style.marginTop="16px";
   const mkpw=(ph,type)=>{ const i=el("input"); i.type="password"; i.placeholder=ph; return i; };
   const oldp=mkpw("原密码"), newp=mkpw("新密码（至少 4 位）");
@@ -3959,6 +4040,20 @@ function renderSettings(app){
   bp.innerHTML = `<div class="blockhead"><h2>练习方式</h2>
     <span class="note">影响普通练习（模考永远是做完才出答案）</span></div>`;
   const cp = el("div","builder");
+  const ft = el("div","field");
+  ft.appendChild(el("label",null,"默认是否计时"));
+  const trow = el("div","chips");
+  [[false,"不计时"],[true,"计时"]].forEach(([v,t])=>{
+    const b=el("button","chip",t);
+    b.setAttribute("aria-pressed", !!cfg.timed===v);
+    b.onclick=()=>{ cfg.timed=v; lsSet(K("timed"), v); render(); };
+    trow.appendChild(b);
+  });
+  ft.appendChild(trow);
+  ft.appendChild(el("div","hint",
+    "新账户默认不计时。计时只是按 R&W 每题 ≈71 秒、Math ≈95 秒的配速提示，超了会变红；不影响判分。"));
+  cp.appendChild(ft);
+
   const fr = el("div","field");
   fr.appendChild(el("label",null,"答案什么时候出"));
   const rr = el("div","chips");
