@@ -355,6 +355,41 @@ mark.hl:hover{outline:1px solid var(--accent)}
 body.dragging{cursor:col-resize;user-select:none}
 body.dragging .pane{pointer-events:none}
 @media(max-width:900px){.splitter{display:none}}
+.aipanel{display:flex;flex-direction:column;border-left:1px solid var(--rule);
+  background:var(--surface-2);min-width:280px;max-width:420px;overflow:hidden}
+.runbody .aipanel{max-height:100%}
+.logpreview .aipanel{border-left:none;border-top:1px solid var(--rule-2);max-width:none;max-height:46vh}
+.aihead{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid var(--rule);flex:none}
+.aihead .eyebrow{flex:none}
+.aiprov{flex:1;font-family:var(--f-num);font-size:10.5px;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aiasks{display:flex;gap:5px;flex-wrap:wrap;padding:10px 13px;border-bottom:1px solid var(--rule);flex:none}
+.askchip{padding:5px 10px;border:1px solid var(--rule-2);border-radius:99px;font-size:11.5px;
+  font-weight:500;color:var(--ink-2);background:var(--surface)}
+.askchip:hover:not(:disabled){border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+.askchip:disabled{opacity:.45;cursor:default}
+.ailog{flex:1;overflow-y:auto;padding:12px 13px;display:flex;flex-direction:column;gap:9px;min-height:120px}
+.aimsg{font-size:13px;line-height:1.7;white-space:pre-wrap;border-radius:var(--r);padding:9px 12px}
+.aimsg.me{background:var(--ink);color:var(--surface);align-self:flex-end;max-width:85%;font-size:12.5px}
+.aimsg.ai{background:var(--surface);border:1px solid var(--rule);font-family:var(--f-read);font-size:13.5px}
+.aimsg.ai:empty::after{content:"正在分析…";color:var(--ink-3);font-style:italic}
+.aiempty{font-size:12px;line-height:1.7;color:var(--ink-3);padding:14px 13px;text-align:left}
+.aiempty b{color:var(--ink-2)}
+.aiempty .primary{margin-top:10px;display:block;width:100%}
+.aiwarn{font-size:11.5px;line-height:1.6;color:var(--accent-ink);background:var(--accent-soft);
+  padding:9px 13px;border-bottom:1px solid var(--rule)}
+.aifoot{display:flex;gap:6px;align-items:flex-end;padding:10px 13px;border-top:1px solid var(--rule);flex:none}
+.aifoot textarea{flex:1;font:inherit;font-size:12.5px;padding:7px 10px;border:1px solid var(--rule-2);
+  border-radius:var(--r);background:var(--surface);color:var(--ink);resize:none;font-family:var(--f-ui)}
+.aifoot .primary{padding:8px 14px;font-size:12.5px}
+@media(max-width:900px){.aipanel{max-width:none;border-left:none;border-top:1px solid var(--rule)}}
+.provrow{border:1px solid var(--rule-2);border-radius:var(--r);padding:11px 13px;margin-bottom:9px;background:var(--surface)}
+.provrow.off{opacity:.5}
+.provtop{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.provtop b{font-size:13px}
+.provord{font-size:10.5px;color:var(--ink-3)}
+.provstat{display:block;font-size:11.5px;margin-top:8px;min-height:15px;color:var(--ink-3)}
+.provstat.ok{color:var(--ok)} .provstat.bad{color:var(--bad)}
 .duegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px;margin:-14px 0 26px}
 .duebox{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:13px 15px}
 .dbtop{display:flex;align-items:baseline;gap:8px}
@@ -645,7 +680,7 @@ const EXAM_DATE = "2026-12-05";
 /* ============ state ============ */
 let BANK=[], BYID={}, SKILLS=[], attempts=[], run=null, view="home";
 let settings = {key:"", model:"deepseek-v4-pro", base:"https://api.deepseek.com", pref:"", fb:[]};
-const hasKey = ()=> !!(settings.key && settings.key.trim());
+const hasKey = ()=> activeProviders().length > 0;   // 旧名保留，语义改成「有任何可用供应商」
 let reviewQ={};          // qid -> {box, due, adds, lastWhy}
 let notesByQ={};         // qid -> {text, ts, doc}
 
@@ -935,6 +970,9 @@ function loadAll(){
   papers   = lsGet(K("papers"), []);
   marks    = lsGet(K("marks"), {});
   hls      = lsGet(K("hls"), {});
+  aiThreads= lsGet(K("threads"), {});
+  providers= lsGet(K("providers"), []);
+  migrateOldSettings();
   cfg.timed = lsGet(K("timed"), false);
   rx       = lsGet(K("rx"), []);
   papers.forEach(p=> (p.qs||[]).forEach(q=>{ BYID[q.id]=q; }));
@@ -1921,6 +1959,14 @@ function drawRun(){
   mk.onclick=()=>{ toggleMark(q.id); st.marked=!!marks[q.id]; drawRun(); };
   bar.appendChild(mk);
   bar.appendChild(sizeControl());
+  if(!run.mock){
+    const aib = el("button","ghost markbtn", "✦ AI");
+    aib.title = st.sub ? "打开 AI 分析侧栏" : "交题判分后可用";
+    aib.setAttribute("aria-pressed", aiOpen);
+    aib.disabled = !st.sub;
+    aib.onclick=()=>{ aiOpen=!aiOpen; drawRun(); };
+    bar.appendChild(aib);
+  }
   const pz = el("button","ghost", run.paused? "继续":"暂停");
   pz.onclick = ()=> run.paused? resumeRun() : pauseRun();
   bar.appendChild(pz);
@@ -1953,6 +1999,7 @@ function drawRun(){
   const right = el("div","pane");
   const ri = el("div","pane-inner"); ri.id="qpane";
   right.appendChild(ri); body.appendChild(right);
+  if(aiOpen && st.sub && !run.mock) body.appendChild(aiPanel(q, st));
   root.appendChild(body);
   applySplit(body);
 
@@ -2149,75 +2196,11 @@ function drawReview(ri, q, st){
 /* ============ DeepSeek ============
    浏览器直连 api.deepseek.com（已确认该接口返回 CORS 头）。
    API key 只存在访问者自己浏览器的 localStorage 里，不进仓库、不上传任何服务器。 */
-const DS_MODELS = [
-  {id:"deepseek-v4-pro", t:"deepseek-v4-pro", d:"推理更强，讲题更细，贵一些"},
-  {id:"deepseek-flash",  t:"deepseek-flash",  d:"快且便宜，日常够用"},
-];
-
-async function dsChat(prompt, {onText, signal, temperature}={}){
-  if(!hasKey()){ const e=new Error("no key"); e.code="no_key"; throw e; }
-  const base = (settings.base||"https://api.deepseek.com").replace(/\/+$/,"");
-  let r;
-  try{
-    r = await fetch(base+"/chat/completions", {
-      method:"POST",
-      headers:{"Content-Type":"application/json", "Authorization":"Bearer "+settings.key.trim()},
-      body: JSON.stringify({
-        model: settings.model || "deepseek-v4-pro",
-        messages:[{role:"user", content:prompt}],
-        stream:true,
-        temperature: temperature==null? 0.4 : temperature
-      }),
-      signal
-    });
-  }catch(err){
-    if(err && err.name==="AbortError"){ const e=new Error("cancelled"); e.code="cancelled"; throw e; }
-    const e=new Error("连不上 API"); e.code="network"; throw e;   // CORS / 断网 / 被墙
-  }
-  if(!r.ok){
-    let detail="";
-    try{ const j=await r.json(); detail = (j.error&&(j.error.message||j.error.type))||""; }catch(_){}
-    const e=new Error(detail||("HTTP "+r.status));
-    e.code = r.status===401 ? "bad_key"
-           : r.status===402 ? "no_balance"
-           : r.status===429 ? "rate_limited"
-           : "http_"+r.status;
-    throw e;
-  }
-  const reader = r.body.getReader(), dec = new TextDecoder();
-  let buf="", out="", thinking=false;
-  for(;;){
-    const {done, value} = await reader.read();
-    if(done) break;
-    buf += dec.decode(value, {stream:true});
-    const lines = buf.split("\n");
-    buf = lines.pop();
-    for(const line of lines){
-      const t = line.trim();
-      if(!t.startsWith("data:")) continue;
-      const payload = t.slice(5).trim();
-      if(payload==="[DONE]") continue;
-      let j; try{ j = JSON.parse(payload); }catch(_){ continue; }
-      const d = j.choices && j.choices[0] && j.choices[0].delta;
-      if(!d) continue;
-      if(d.content){ out += d.content; thinking=false; if(onText) onText(out); }
-      else if(d.reasoning_content && !out && !thinking){ thinking=true; if(onText) onText("（模型正在推理…）"); }
-    }
-  }
-  if(!out.trim()){ const e=new Error("空回复"); e.code="empty"; throw e; }
-  return out;
+/* 旧调用点（逐题拆解、薄弱点分析、试卷整理）统一走带故障转移的 aiChat */
+async function dsChat(prompt, opt){
+  return aiChat([{role:"user", content:prompt}], opt||{});
 }
-
-function dsErrorText(code, msg){
-  return code==="no_key"      ? "还没填 DeepSeek API key — 去「设置」填一个"
-       : code==="bad_key"     ? "API key 不对或已失效（401）"
-       : code==="no_balance"  ? "DeepSeek 账户余额不足（402）"
-       : code==="rate_limited"? "请求太频繁（429），等几秒再试"
-       : code==="network"     ? "连不上 api.deepseek.com — 检查网络，或在设置里换一个中转地址"
-       : code==="cancelled"   ? "已取消"
-       : code==="empty"       ? "模型没有返回内容，再试一次"
-       : "调用失败" + (msg? "："+msg : "");
-}
+const dsErrorText = (code, msg)=> aiErrText(code, msg);
 
 /* 把用户的长期偏好 + 最近的负面反馈，拼进每一次讲题请求 */
 function prefBlock(){
@@ -2231,6 +2214,321 @@ function prefBlock(){
        + fb.map((f,i)=>`${i+1}. ${f.text.trim()}`).join("\n");
   }
   return s;
+}
+
+/* ============ 题目 → 纯文本 ============
+   喂给模型的文本必须和屏幕上看到的完全一致，否则它分析的就是另一道题。
+   踩过的坑（都有真实题目对应，见 tools/audit-serializer.cjs）：
+   · 311 个 SVG 里 308 个带 aria-label 官方图描述，直接删 figure 会丢掉 13% 题目的图信息
+   · 71 个表格全部包在 <figure> 内，删 figure 等于连表带数据一起删
+   · 76 个 <math> 没有 alttext，只能线性化 MathML
+   · 填空是 <span aria-hidden>______</span><span class="sr-only">blank</span>，
+     不处理模型会读到一个叫 blank 的单词 */
+
+function mathToText(el){
+  const alt = el.getAttribute("alttext");
+  if(alt && alt.trim()) return " " + alt.trim() + " ";
+  const walk = n=>{
+    if(n.nodeType===3) return n.nodeValue;
+    const tag = (n.tagName||"").toLowerCase().replace(/^m:/,"");
+    const kids = [...n.childNodes].map(walk);
+    switch(tag){
+      case "msup":   return kids[0] + "^" + kids.slice(1).join("");
+      case "msub":   return kids[0] + "_" + kids.slice(1).join("");
+      case "mfrac":  return "(" + kids[0] + ")/(" + kids.slice(1).join("") + ")";
+      case "msqrt":  return "sqrt(" + kids.join("") + ")";
+      case "mroot":  return "root" + kids[1] + "(" + kids[0] + ")";
+      case "mo": case "mi": case "mn": case "mtext": return kids.join("");
+      default:       return kids.join("");
+    }
+  };
+  const t = walk(el).replace(/\s+/g," ").trim();
+  return t ? " " + t + " " : " 〔公式〕 ";
+}
+
+function tableToText(tbl){
+  const cap = tbl.querySelector("caption");
+  const rows = [...tbl.querySelectorAll("tr")].map(tr =>
+    [...tr.children].map(td => td.textContent.replace(/\s+/g," ").trim()));
+  if(!rows.length) return "";
+  const w = rows[0].map((_,i)=> Math.max(...rows.map(r=>(r[i]||"").length)));
+  const line = r => "| " + r.map((c,i)=>(c||"").padEnd(w[i]||0)).join(" | ") + " |";
+  const out = [];
+  if(cap) out.push("表格：" + cap.textContent.replace(/\s+/g," ").trim());
+  out.push(line(rows[0]));
+  out.push("|" + w.map(n=>"-".repeat((n||0)+2)).join("|") + "|");
+  rows.slice(1).forEach(r=>out.push(line(r)));
+  return "\n" + out.join("\n") + "\n";
+}
+
+function htmlToPlain(html){
+  if(!html) return "";
+  const root = document.createElement("div");
+  root.innerHTML = String(html);
+
+  // 1) 表格先抽出来（它们都藏在 figure 里，晚一步就被连锅端了）
+  root.querySelectorAll("table").forEach(t=>{
+    const txt = tableToText(t);
+    const holder = t.closest("figure") || t;
+    holder.replaceWith(document.createTextNode(txt));
+  });
+  // 2) 公式
+  root.querySelectorAll("math").forEach(m=> m.replaceWith(document.createTextNode(mathToText(m))));
+  // 3) 图形：官方 aria-label 就是图的正式描述，必须保留
+  root.querySelectorAll("svg,img").forEach(f=>{
+    const d = (f.getAttribute("aria-label") || f.getAttribute("alt") || "").replace(/\s+/g," ").trim();
+    const holder = f.closest("figure") || f;
+    holder.replaceWith(document.createTextNode(d ? `\n〔图：${d}〕\n` : "\n〔此处有一张图，官方未提供文字描述〕\n"));
+  });
+  // 剩下的 figure 只是包装层（有的题嵌套四层），表格和图已经变成文本节点了。
+  // 必须「拆包装」而不是删节点，否则会把刚放进去的表格文字一起删掉。
+  for(let guard=0; guard<50 && root.querySelector("figure"); guard++){
+    const f = root.querySelector("figure");
+    while(f.firstChild) f.parentNode.insertBefore(f.firstChild, f);
+    f.remove();
+  }
+  // 4) 填空：aria-hidden 的下划线 + sr-only 的 "blank" 是同一个空
+  root.querySelectorAll(".sr-only").forEach(e=> e.remove());
+  root.querySelectorAll("[aria-hidden='true']").forEach(e=>{
+    if(/^[_\s]+$/.test(e.textContent)) e.replaceWith(document.createTextNode(" 〔空格〕 "));
+  });
+  // 5) 块级元素之间留换行，否则段落会粘成一坨
+  root.querySelectorAll("p,div,li,br,tr").forEach(e=> e.appendChild(document.createTextNode("\n")));
+
+  let t = root.textContent;
+  t = t.replace(/[_]{3,}/g, " 〔空格〕 ");          // 漏网的裸下划线
+  t = t.replace(/[ \t\u00a0]+/g, " ");
+  t = t.replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n");
+  return t.trim();
+}
+
+/* 一道题的完整事实包。模型看到的就是这些，不多不少。 */
+function serializeQuestion(q, a, opt){
+  opt = opt || {};
+  const L = ["A","B","C","D"];
+  const out = [];
+  out.push(`【考点】${DOMAINS[q.dom].name} → ${q.sk}`);
+  out.push(`【难度】${DIFF[q.df]||q.df}　【官方分数段】band ${q.bd||"—"}　【题型】${q.ty==="spr"?"填空题":"四选一"}`);
+  if(q.sti) out.push(`【阅读材料】\n${htmlToPlain(q.sti)}`);
+  out.push(`【问题】\n${htmlToPlain(q.ste)}`);
+  if(q.ty!=="spr"){
+    out.push("【选项】\n" + q.op.map((o,i)=>`${L[i]}. ${htmlToPlain(o)}`).join("\n"));
+  }
+  out.push(`【正确答案】${q.an.join(" 或 ")}`);
+  if(a && a.picked!=null && a.picked!==""){
+    out.push(`【我的作答】${a.picked}${a.ok?"（对）":"（错）"}${a.ms?`，用时 ${Math.round(a.ms/1000)} 秒`:""}`);
+  }
+  if(opt.rationale!==false && q.ra){
+    out.push(`【College Board 官方解析（权威，不得与之冲突）】\n${htmlToPlain(q.ra)}`);
+  }
+  return out.join("\n\n");
+}
+
+/* ============ AI 分析侧栏 ============ */
+
+/* ---- 供应商：可配多个，按顺序故障转移 ---- */
+const PROVIDER_PRESETS = [
+  {id:"deepseek", name:"DeepSeek", base:"https://api.deepseek.com", model:"deepseek-flash",
+   hint:"按量计费但极便宜；本工具默认"},
+  {id:"siliconflow", name:"SiliconFlow", base:"https://api.siliconflow.cn/v1", model:"deepseek-ai/DeepSeek-V3",
+   hint:"国内中转，常有免费额度"},
+  {id:"moonshot", name:"Moonshot", base:"https://api.moonshot.cn/v1", model:"moonshot-v1-8k", hint:""},
+  {id:"zhipu", name:"智谱 GLM", base:"https://open.bigmodel.cn/api/paas/v4", model:"glm-4-flash",
+   hint:"glm-4-flash 目前免费"},
+  {id:"openrouter", name:"OpenRouter", base:"https://openrouter.ai/api/v1", model:"deepseek/deepseek-chat", hint:""},
+  {id:"custom", name:"自定义", base:"", model:"", hint:"任何 OpenAI 兼容接口"},
+];
+let providers = [];          // [{id,name,base,model,key,on}]
+const saveProviders = ()=> lsSet(K("providers"), providers);
+
+function activeProviders(){ return providers.filter(p=>p.on && p.key && p.key.trim() && p.base && p.model); }
+function migrateOldSettings(){
+  // 旧版把单一 DeepSeek 配置存在 settings 里，搬过来，别让用户重填
+  if(providers.length) return;
+  if(settings.key && settings.key.trim()){
+    providers = [{id:"deepseek", name:"DeepSeek", base:settings.base||"https://api.deepseek.com",
+                  model:settings.model||"deepseek-flash", key:settings.key, on:true}];
+    saveProviders();
+  }
+}
+
+/* 单次调用，失败会依次换下一个供应商 */
+async function aiChat(messages, opt){
+  opt = opt||{};
+  const list = activeProviders();
+  if(!list.length){ const e=new Error("no provider"); e.code="no_key"; throw e; }
+  let lastErr = null;
+  for(const p of list){
+    try{
+      return await callOne(p, messages, opt);
+    }catch(e){
+      lastErr = e;
+      aiLastError = `[${p.name}] ${e.code||"error"}: ${e.message||""}`;
+      if(e.code==="cancelled") throw e;
+      if(opt.onFallback && list.indexOf(p) < list.length-1) opt.onFallback(p.name, e.code);
+    }
+  }
+  throw lastErr || new Error("all providers failed");
+}
+let aiLastError = "";
+
+async function callOne(p, messages, opt){
+  const base = p.base.replace(/\/+$/,"");
+  const body = {model:p.model, messages, temperature: opt.temperature==null?0.3:opt.temperature,
+                stream: opt.stream!==false};
+  let r;
+  try{
+    r = await fetch(base+"/chat/completions", {
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+p.key.trim()},
+      body: JSON.stringify(body), signal: opt.signal});
+  }catch(err){
+    if(err && err.name==="AbortError"){ const e=new Error("已取消"); e.code="cancelled"; throw e; }
+    const e=new Error("连不上 "+base); e.code="network"; throw e;
+  }
+  if(!r.ok){
+    let d=""; try{ const j=await r.json(); d=(j.error&&(j.error.message||j.error.type))||""; }catch(_){}
+    const e=new Error(d||("HTTP "+r.status));
+    e.code = r.status===401?"bad_key" : r.status===402?"no_balance"
+           : r.status===429?"rate_limited" : r.status===404?"bad_model" : "http_"+r.status;
+    throw e;
+  }
+  if(!body.stream){
+    const j = await r.json();
+    const t = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    if(!t || !t.trim()){ const e=new Error("空回复"); e.code="empty"; throw e; }
+    if(opt.onText) opt.onText(t);
+    return t;
+  }
+  const reader = r.body.getReader(), dec = new TextDecoder();
+  let buf="", out="";
+  for(;;){
+    const {done, value} = await reader.read();
+    if(done) break;
+    buf += dec.decode(value, {stream:true});
+    const lines = buf.split("\n"); buf = lines.pop();
+    for(const line of lines){
+      const t=line.trim();
+      if(!t.startsWith("data:")) continue;
+      const pl=t.slice(5).trim();
+      if(pl==="[DONE]") continue;
+      let j; try{ j=JSON.parse(pl); }catch(_){ continue; }
+      const d=j.choices && j.choices[0] && j.choices[0].delta;
+      if(d && d.content){ out += d.content; if(opt.onText) opt.onText(out); }
+    }
+  }
+  if(!out.trim()){
+    // 流式解析不出东西就退回非流式再试一次，不让它成为单点故障
+    return await callOne(p, messages, Object.assign({}, opt, {stream:false}));
+  }
+  return out;
+}
+
+function aiErrText(code, msg){
+  return code==="no_key"      ? "还没配置任何模型。去「设置 → AI 模型」加一个。"
+       : code==="bad_key"     ? "API key 不对或失效（401）"
+       : code==="no_balance"  ? "账户余额不足（402）"
+       : code==="rate_limited"? "请求太频繁（429），等几秒"
+       : code==="bad_model"   ? "接口或模型名不对（404），检查 base URL 和模型 ID"
+       : code==="network"     ? "连不上接口 —— 检查网络，或在设置里换一个供应商"
+       : code==="cancelled"   ? "已取消"
+       : code==="empty"       ? "模型没返回内容"
+       : "调用失败" + (msg?"："+msg:"");
+}
+
+/* ---- 按考点定制的分析框架：不泛泛而谈的关键 ---- */
+const FRAMES = {
+  "Words in Context":
+    "先说这个空要求的词义方向（褒贬、强度、和哪个词呼应）；再逐个判定四个选项的实际词义，指出干扰项是因为搭配像、还是义项接近但方向反。",
+  "Text Structure and Purpose":
+    "先用一句话说清这句/这段在文中承担的功能（举例、让步、转折、下定义、反驳），再说错误选项错在把「内容」当成了「功能」，还是把局部功能说成了全文功能。",
+  "Cross-Text Connections":
+    "先分别用一句话概括两篇各自的立场，再说第二篇作者会如何回应第一篇的具体哪一点。错误选项通常只顾一边。",
+  "Central Ideas and Details":
+    "主旨题：指出正确选项覆盖了全文哪几个部分，错误选项只覆盖了哪一半。细节题：指出答案在原文哪一句。",
+  "Command of Evidence":
+    "先把「要支持/削弱的那个结论」原样复述出来；再逐个判断选项是否真的指向这个结论，还是只是和话题相关。图表题要说清该读哪一行/哪一列。",
+  "Inferences":
+    "先列出文中给定的前提，再说明正确选项是这些前提的必然结论；错误选项通常「合理但不必然」，要指出它多用了哪个文中没有的假设。",
+  "Boundaries":
+    "直接写出这里涉及的标点规则（两个独立分句之间可以用什么、不可以用什么），再对照四个选项判定。规则本身要写出来，不要只说「注意标点」。",
+  "Form, Structure, and Sense":
+    "指出被考的是哪一条：主谓一致 / 时态 / 代词指代 / 修饰语位置 / 平行结构 / 所有格。把那条规则写出来，再判定选项。",
+  "Rhetorical Synthesis":
+    "第一步：把题目要求的写作目的原样抄出来，并判断它属于哪一类任务（specify how / generalization / introduce / contrast / emphasize）。第二步：给每个选项标注它实际完成的功能。第三步：划掉「内容对但功能错」的项。",
+  "Transitions":
+    "先判定前后两句的逻辑关系（因果/转折/递进/举例/让步/对比），写出判断依据；再说明为什么其它三个连接词的关系类型不匹配。",
+};
+const FRAME_BY_KIND = {
+  rule: "把被考的那条规则或公式直接写出来，再用它逐个判定选项。不要只说「要注意」。",
+  read: "先指出这道题要求的推理链条是什么，再说明正确选项如何满足它、你选的那个在哪一步断了。",
+};
+const MATH_FRAME =
+  "先写出解这道题需要的关键一步（方程、公式或变形），再给出简短推导。不要罗列完整计算过程，只点出最容易卡住的那一步。最后说明干扰项是怎么造出来的（常见是符号错、代错数、或用了相似但不适用的公式）。";
+
+function frameFor(q){
+  if(q.sec===2) return MATH_FRAME;
+  return FRAMES[q.sk] || FRAME_BY_KIND[(SKILL_INFO[q.sk]||{}).kind || "read"];
+}
+
+/* ---- 系统指令 ---- */
+function aiSystem(q){
+  const noFig = q && /官方未提供文字描述/.test(serializeQuestion(q, null));
+  return [
+"你是一名数字 SAT 教练，正在帮一名中国学生备考（托福 100，目标 R&W 750 / Math 780）。",
+"",
+"硬性要求：",
+"1. 只依据我给你的题目原文和官方解析作答。原文里没有的信息一律不许补充、不许猜。",
+"2. 你的结论不得与【官方解析】冲突。如果你的分析和官方解析不一致，以官方解析为准并明说。",
+"3. 不讲应试技巧、不讲「排除法」「先看选项」这类套路。学生要的是这道题考的那项具体能力，以及他缺的那块知识。",
+"4. 不要复述题干，不要翻译全文。",
+"5. 用中文。不用 markdown 星号加粗。每个自然段前加「· 」。",
+"6. 除非我明确要求展开，否则控制在 300 字以内。",
+noFig ? "7. 这道题含一张官方没有提供文字描述的图，你看不到它。凡是依赖该图的判断，必须明说「这部分依赖图，我看不到」，不许编。" : "",
+].filter(Boolean).join("\n");
+}
+
+/* ---- 从错题本里捞相关历史（本地检索，不花 token 也不会编） ---- */
+function relatedMistakes(q, limit){
+  limit = limit || 5;
+  const rows = attempts.filter(a=>!a.ok && a.qid!==q.id);
+  const sameSkill = rows.filter(a=>a.sk===q.sk);
+  const sameDomain = rows.filter(a=>a.dom===q.dom && a.sk!==q.sk);
+  const pick = sameSkill.concat(sameDomain).slice(-limit).reverse();
+  if(!pick.length) return "";
+  const lines = pick.map(a=>{
+    const qq = BYID[a.qid]; if(!qq) return "";
+    const stem = htmlToPlain(qq.ste).replace(/\n/g," ").slice(0,90);
+    return `· ${a.sk}（${DIFF[a.df]||a.df}，band ${a.bd}）：${stem}… 正确 ${a.correct}，我选了 ${a.picked||"未答"}`;
+  }).filter(Boolean);
+  const stat = {};
+  rows.forEach(a=>{ stat[a.sk]=(stat[a.sk]||0)+1; });
+  const top = Object.entries(stat).sort((a,b)=>b[1]-a[1]).slice(0,4)
+    .map(([k,v])=>`${k} ${v} 道`).join("、");
+  return `【我的错题背景】\n累计错题分布：${top}\n最近同类错题：\n${lines.join("\n")}`;
+}
+
+/* ---- 预设提问 ---- */
+const ASKS = [
+  {k:"what",  t:"这题考什么",     q:"这道题真正考的是哪一项具体能力？按上面的分析框架回答。"},
+  {k:"why",   t:"我为什么错",     q:"我选的那个选项是怎么被设计出来的？我缺的是哪一块知识或哪一步推理？"},
+  {k:"trap",  t:"干扰项怎么设的", q:"逐个说明另外三个选项各自是按什么思路造出来的，分别针对什么样的误解。"},
+  {k:"hist",  t:"这类题我老错在哪", q:"结合我的错题背景，这一类题我反复栽在哪一点上？给出一个具体到可操作的判断，如果确实没有共同规律就直说。", needHist:true},
+  {k:"words", t:"该记的词",       q:"从这道题的材料和选项里挑出最值得记的 3-6 个学术词或短语。每个给出：词、在本句中的意思、这句原话。只挑 SAT 高频的，不要挑简单词。"},
+];
+
+function buildMessages(q, a, askText, history){
+  const sys = aiSystem(q);
+  const facts = serializeQuestion(q, a);
+  const frame = frameFor(q);
+  const hist  = relatedMistakes(q);
+  const turns = [{role:"system", content: sys}];
+  let head = `${facts}\n\n【本题分析框架】\n${frame}`;
+  if(hist) head += `\n\n${hist}`;
+  turns.push({role:"user", content: head + `\n\n【我的问题】\n${askText}`});
+  // 对话不长，最多带最近 3 轮
+  (history||[]).slice(-6).forEach(m=>turns.push(m));
+  return turns;
 }
 
 /* ============ 拆解 ============ */
@@ -2931,6 +3229,139 @@ async function exportDocx(btn, items, meta, analysis){
   }
 }
 
+/* ============ AI 侧栏 UI ============ */
+let aiOpen = false;          // 侧栏是否展开
+let aiThreads = {};          // qid -> [{role,content}]
+let aiBusy = false;
+let aiCtl = null;
+const saveThreads = ()=> lsSet(K("threads"), aiThreads);
+
+function aiPanel(q, a){
+  const p = el("div","aipanel");
+  const head = el("div","aihead");
+  head.innerHTML = `<span class="eyebrow">AI 分析</span>`;
+  const prov = activeProviders();
+  const tag = el("span","aiprov", prov.length? prov[0].model : "未配置");
+  tag.title = prov.length
+    ? "当前：" + prov.map(x=>x.name+"/"+x.model).join(" → ") + "（前一个失败自动换下一个）"
+    : "还没配置模型";
+  head.appendChild(tag);
+  const clr = el("button","drillbtn","清空");
+  clr.onclick=()=>{ delete aiThreads[q.id]; saveThreads(); rerenderAI(q,a); };
+  head.appendChild(clr);
+  const cls = el("button","drillbtn","收起");
+  cls.onclick=()=>{ aiOpen=false; if(run) drawRun(); else render(); };
+  head.appendChild(cls);
+  p.appendChild(head);
+
+  if(!prov.length){
+    const nag = el("div","aiempty");
+    nag.innerHTML = `<b>还没配置模型。</b><br>AI 分析需要一个 OpenAI 兼容接口的 key。
+      可以配多个，前一个失败会自动换下一个。`;
+    const b = el("button","primary","去设置");
+    b.onclick=()=>{ if(run) closeRun(); aiOpen=false; gotoView("settings"); };
+    nag.appendChild(b);
+    p.appendChild(nag);
+    return p;
+  }
+
+  // 图不可见时先告知，避免它凭空分析
+  if(/官方未提供文字描述/.test(serializeQuestion(q, null))){
+    p.appendChild(el("div","aiwarn",
+      "这道题有一张图，College Board 没有提供文字描述，AI 看不到它。涉及图的判断它会明说自己看不到。"));
+  }
+
+  const asks = el("div","aiasks");
+  ASKS.forEach(o=>{
+    if(o.needHist && !relatedMistakes(q)) return;
+    const b = el("button","askchip", o.t);
+    b.disabled = aiBusy;
+    b.onclick = ()=> sendAI(q, a, o.q, o.t);
+    asks.appendChild(b);
+  });
+  p.appendChild(asks);
+
+  const log = el("div","ailog"); log.id="ailog";
+  log.dataset.keepscroll = "ailog";
+  const th = aiThreads[q.id] || [];
+  if(!th.length && !aiBusy){
+    log.appendChild(el("div","aiempty",
+      "点上面任意一个问题开始。它看到的是这道题的完整原文、官方解析，以及你在这个考点上的历史错题。"));
+  }
+  th.forEach(m=>{
+    const d = el("div","aimsg "+(m.role==="user"?"me":"ai"));
+    d.textContent = m.role==="user" ? (m.label||m.content) : m.content;
+    log.appendChild(d);
+  });
+  p.appendChild(log);
+
+  const foot = el("div","aifoot");
+  const ta = el("textarea"); ta.id="aiin"; ta.rows=2; ta.placeholder="也可以直接问，比如「B 和 C 我分不清」";
+  ta.disabled = aiBusy;
+  ta.onkeydown = e=>{
+    if(e.key==="Enter" && (e.metaKey||e.ctrlKey)){ e.preventDefault();
+      const v=ta.value.trim(); if(v){ ta.value=""; sendAI(q,a,v,v); } }
+  };
+  foot.appendChild(ta);
+  const send = el("button","primary", aiBusy? "生成中…":"问");
+  send.disabled = aiBusy;
+  send.onclick=()=>{ const v=ta.value.trim(); if(v){ ta.value=""; sendAI(q,a,v,v); } };
+  foot.appendChild(send);
+  if(aiBusy){
+    const stop = el("button","ghost danger","停");
+    stop.onclick=()=>{ if(aiCtl) aiCtl.abort(); };
+    foot.appendChild(stop);
+  }
+  p.appendChild(foot);
+  return p;
+}
+
+function rerenderAI(q,a){
+  const old = document.querySelector(".aipanel");
+  if(!old) { if(run) drawRun(); else render(); return; }
+  const fresh = aiPanel(q,a);
+  old.replaceWith(fresh);
+  const lg = document.querySelector("#ailog");
+  if(lg) lg.scrollTop = lg.scrollHeight;
+}
+
+async function sendAI(q, a, question, label){
+  if(aiBusy) return;
+  aiBusy = true;
+  aiCtl = new AbortController();
+  const th = aiThreads[q.id] = aiThreads[q.id] || [];
+  th.push({role:"user", content:question, label});
+  th.push({role:"assistant", content:""});
+  saveThreads();
+  rerenderAI(q,a);
+
+  const history = th.slice(0,-2).map(m=>({role:m.role, content:m.content})).filter(m=>m.content);
+  const msgs = buildMessages(q, a, question, history);
+  const cur = th[th.length-1];
+  try{
+    const txt = await aiChat(msgs, {
+      signal: aiCtl.signal,
+      onText: t=>{
+        cur.content = t;
+        const lg = document.querySelector("#ailog");
+        if(lg && lg.lastElementChild){ lg.lastElementChild.textContent = t; lg.scrollTop = lg.scrollHeight; }
+      },
+      onFallback: (name, code)=>{
+        cur.content = `（${name} 失败：${code}，正在换下一个供应商…）`;
+        const lg = document.querySelector("#ailog");
+        if(lg && lg.lastElementChild) lg.lastElementChild.textContent = cur.content;
+      },
+    });
+    cur.content = txt;
+  }catch(e){
+    cur.content = "✗ " + aiErrText(e && e.code, e && e.message) + (aiLastError? `\n\n最后一次错误：${aiLastError}`:"");
+  }finally{
+    aiBusy = false; aiCtl = null;
+    saveThreads();
+    rerenderAI(q,a);
+  }
+}
+
 /* ============ 多选 + 标记 + 只看不做 ============ */
 let picked = new Set();     // 当前列表里勾选的 qid
 let listTab = "wrong";      // wrong | marked
@@ -3623,6 +4054,9 @@ function renderLog(app){
   if(!cur){ right.appendChild(el("div","empty","左边选一道题，这里显示题目和官方解析。")); }
   else {
     const top = el("div","pvtop");
+    const aib = el("button","drillbtn"+(aiOpen?" ondone":""), aiOpen? "✦ AI 分析（已开）":"✦ AI 分析");
+    aib.onclick=()=>{ aiOpen=!aiOpen; render(); };
+    top.appendChild(aib);
     const rv = el("button","drillbtn"+(showMistakes?" ondone":""),
                   showMistakes? "✓ 标注错误（已开）" : "标注错误");
     rv.title = "默认隐藏答案和你当时的选择，方便重新思考；打开后显示正确项、你选错的项和官方解析";
@@ -3658,6 +4092,7 @@ function renderLog(app){
     sc.appendChild(questionPanel(cur.q, cur.a, {reveal: showMistakes}));
     right.appendChild(sc);
     applyHighlights(sc, cur.q.id);
+    if(aiOpen) right.appendChild(aiPanel(cur.q, cur.a));
   }
   split.appendChild(right);
   app.appendChild(split);
@@ -3906,6 +4341,87 @@ function renderImport(app){
   }
 }
 
+function renderProviders(app){
+  const b1 = el("section","block");
+  b1.innerHTML = `<div class="blockhead"><h2>AI 模型</h2>
+    <span class="note">可以配多个，从上往下用；前一个失败自动换下一个</span></div>`;
+  const card = el("div","builder");
+
+  if(!providers.length){
+    card.appendChild(el("div","hint",
+      "还没配置。AI 分析需要一个 <b>OpenAI 兼容</b>接口的 key —— 任何这类服务都能用。"));
+  }
+
+  providers.forEach((p, idx)=>{
+    const row = el("div","provrow"+(p.on?"":" off"));
+    const top = el("div","provtop");
+    const on = el("input"); on.type="checkbox"; on.className="ck"; on.checked=!!p.on;
+    on.onchange=()=>{ p.on=on.checked; saveProviders(); render(); };
+    top.appendChild(on);
+    top.appendChild(el("b",null, esc(p.name)));
+    const ord = el("span","provord num", `第 ${idx+1} 顺位`);
+    top.appendChild(ord);
+    top.appendChild(el("div","spacer"));
+    if(idx>0){
+      const up=el("button","drillbtn","↑");
+      up.title="提到前面优先使用";
+      up.onclick=()=>{ providers.splice(idx-1,0,providers.splice(idx,1)[0]); saveProviders(); render(); };
+      top.appendChild(up);
+    }
+    const st = el("span","provstat"); st.id="pst"+idx;
+    const test = el("button","drillbtn","测试");
+    test.onclick=async()=>{
+      test.disabled=true; st.innerHTML='<span class="spin"></span>';
+      try{
+        const t = await callOne(p, [{role:"user",content:"只回复两个字：正常"}], {stream:false, temperature:0});
+        st.textContent = "✓ " + String(t).slice(0,10);
+        st.className = "provstat ok";
+      }catch(e){ st.textContent = "✗ " + aiErrText(e&&e.code, e&&e.message); st.className="provstat bad"; }
+      finally{ test.disabled=false; }
+    };
+    const del = el("button","drillbtn","删除");
+    del.onclick=()=>{ if(confirm(`删除 ${p.name}？`)){ providers.splice(idx,1); saveProviders(); render(); } };
+    top.appendChild(test); top.appendChild(del);
+    row.appendChild(top);
+
+    const f = el("div","fields");
+    const mk=(lab,val,ph,type,onch)=>{
+      const d=el("div","field"); d.appendChild(el("label",null,lab));
+      const i=el("input"); i.type=type||"text"; i.value=val||""; i.placeholder=ph||"";
+      i.autocomplete="off"; i.spellcheck=false;
+      i.onchange=()=>{ onch(i.value.trim()); saveProviders(); };
+      d.appendChild(i); return d;
+    };
+    f.appendChild(mk("接口地址", p.base, "https://api.deepseek.com", "text", v=>p.base=v));
+    f.appendChild(mk("模型 ID", p.model, "deepseek-flash", "text", v=>p.model=v));
+    f.appendChild(mk("API KEY", p.key, "sk-...", "password", v=>p.key=v));
+    row.appendChild(f);
+    row.appendChild(st);
+    card.appendChild(row);
+  });
+
+  const foot = el("footer");
+  const sel = el("select");
+  sel.innerHTML = `<option value="">＋ 添加供应商…</option>` +
+    PROVIDER_PRESETS.map(x=>`<option value="${x.id}">${esc(x.name)}${x.hint?" — "+esc(x.hint):""}</option>`).join("");
+  sel.onchange=()=>{
+    const pr = PROVIDER_PRESETS.find(x=>x.id===sel.value);
+    if(!pr) return;
+    providers.push({id:pr.id, name:pr.name, base:pr.base, model:pr.model, key:"", on:true});
+    saveProviders(); render();
+  };
+  foot.appendChild(sel);
+  foot.appendChild(el("div","spacer"));
+  foot.appendChild(el("span","avail",
+    `当前可用 <b>${activeProviders().length}</b> 个`));
+  card.appendChild(foot);
+  card.appendChild(el("div","hint",
+    "key 只存在你自己这台浏览器里，不上传、不在网站代码里。<b>本工具不替你承担任何费用</b> —— "+
+    "DeepSeek 是按量计费的（很便宜，一次分析通常不到一分钱），不是免费；智谱的 glm-4-flash 等模型目前有免费额度。"));
+  b1.appendChild(card);
+  app.appendChild(b1);
+}
+
 /* ============ 设置 ============ */
 function renderSettings(app){
   const head = el("div","pagehead");
@@ -3968,72 +4484,7 @@ function renderSettings(app){
   c0.appendChild(f0);
   b0.appendChild(c0); app.appendChild(b0);
 
-  /* --- DeepSeek --- */
-  const b1 = el("section","block");
-  b1.innerHTML = `<div class="blockhead"><h2>DeepSeek</h2>
-    <span class="note">讲题用的模型。不填也能正常刷题，只是没有 AI 拆解</span></div>`;
-  const card = el("div","builder");
-
-  const f1 = el("div","field");
-  f1.appendChild(el("label",null,"API KEY"));
-  const keyWrap = el("div","keyrow");
-  const key = el("input"); key.type="password"; key.placeholder="sk-...";
-  key.value = settings.key||"";
-  key.autocomplete="off"; key.spellcheck=false;
-  const eye = el("button","drillbtn","显示");
-  eye.onclick=()=>{ const p = key.type==="password"; key.type = p?"text":"password"; eye.textContent = p?"隐藏":"显示"; };
-  keyWrap.appendChild(key); keyWrap.appendChild(eye);
-  f1.appendChild(keyWrap);
-  f1.appendChild(el("div","hint",'在 platform.deepseek.com 的 API keys 页面创建。'));
-
-  const f2 = el("div","field");
-  f2.appendChild(el("label",null,"模型"));
-  const sel = el("select");
-  sel.innerHTML = DS_MODELS.map(m=>
-    `<option value="${esc(m.id)}" ${settings.model===m.id?"selected":""}>${esc(m.t)} — ${esc(m.d)}</option>`).join("")
-    + `<option value="__custom" ${DS_MODELS.every(m=>m.id!==settings.model)?"selected":""}>自定义…</option>`;
-  const custom = el("input"); custom.type="text"; custom.placeholder="模型 ID";
-  custom.value = DS_MODELS.every(m=>m.id!==settings.model)? settings.model : "";
-  custom.style.marginTop="6px";
-  custom.classList.toggle("hide", sel.value!=="__custom");
-  sel.onchange=()=>{ custom.classList.toggle("hide", sel.value!=="__custom"); };
-  f2.appendChild(sel); f2.appendChild(custom);
-
-  const f3 = el("div","field");
-  f3.appendChild(el("label",null,"接口地址"));
-  const base = el("input"); base.type="text"; base.value = settings.base||"https://api.deepseek.com";
-  f3.appendChild(base);
-  f3.appendChild(el("div","hint","默认官方地址。如果直连不通，可以换成自己的中转地址。"));
-
-  const fields = el("div","fields");
-  fields.appendChild(f1); fields.appendChild(f2); fields.appendChild(f3);
-  card.appendChild(fields);
-
-  const foot = el("footer");
-  const status = el("span","avail","");
-  foot.appendChild(status);
-  const test = el("button","ghost","测试连接");
-  const save = el("button","primary","保存");
-  const collect = ()=>{
-    settings.key = key.value.trim();
-    settings.model = sel.value==="__custom" ? custom.value.trim() : sel.value;
-    settings.base = base.value.trim() || "https://api.deepseek.com";
-  };
-  save.onclick=()=>{ collect(); saveSettings(); toast("已保存"); render(); };
-  test.onclick=async ()=>{
-    collect();
-    if(!hasKey()) return status.textContent = "先填 API key";
-    test.disabled=true; status.innerHTML = '<span class="spin"></span> 正在测试…';
-    try{
-      const t = await dsChat("只回复两个字：正常", {temperature:0});
-      status.textContent = "连通 ✓ 模型回复：" + t.slice(0,20);
-      saveSettings();
-    }catch(e){ status.textContent = dsErrorText(e && e.code, e && e.message); }
-    finally{ test.disabled=false; }
-  };
-  foot.appendChild(test); foot.appendChild(save);
-  card.appendChild(foot);
-  b1.appendChild(card); app.appendChild(b1);
+  renderProviders(app);
 
   /* --- 练习方式 --- */
   const bp = el("section","block");
