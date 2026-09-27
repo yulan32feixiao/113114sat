@@ -300,6 +300,12 @@ select,input[type=number]{font:inherit;font-size:13px;padding:6px 9px;border:1px
 .gnote{font-size:12px;line-height:1.55;color:var(--accent-ink);background:var(--accent-soft);
   border-radius:var(--r);padding:10px 12px;margin-bottom:14px}
 .gfoot{font-size:11px;line-height:1.6;color:var(--ink-3);margin-top:16px;padding-top:14px;border-top:1px solid var(--rule)}
+.gfound{font-size:12px;line-height:1.6;border:1px solid var(--rule-2);border-radius:var(--r);
+  padding:10px 12px;margin-bottom:14px;color:var(--ink-2)}
+.gfound.has{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.gfound b{font-size:12.5px}
+.glist{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-family:var(--f-num);font-size:10.5px;opacity:.9}
+.gtip{margin-top:7px;font-size:11.5px;opacity:.85}
 .recoverlist{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;max-height:210px;overflow-y:auto}
 .recoveritem{display:flex;flex-direction:column;gap:2px;text-align:left;padding:9px 11px;
   border:1px solid var(--rule-2);border-radius:var(--r);background:var(--surface)}
@@ -956,6 +962,7 @@ function migrateLegacy(){
 
 /* ---------- 登录 / 注册界面 ---------- */
 function showAuth(){
+  document.querySelectorAll("#gate").forEach(e=>e.remove());   // 重复调用时替换而不是叠加
   $("#topbar").classList.add("hide");
   $("#app").classList.add("hide");
   const gate = el("div"); gate.id="gate";
@@ -969,6 +976,32 @@ function showAuth(){
     card.innerHTML = `
       <div class="brand" style="justify-content:center;margin-bottom:6px"><span class="mk"></span>Band Seven</div>
       <p class="gsub">3,311 道 College Board 官方数字 SAT 题</p>`;
+
+    // 先把这个浏览器里到底有什么摆出来，省掉「是不是打开错浏览器了」的猜测
+    const sum = accountSummary();
+    const totalRec = sum.reduce((a,x)=>a+x.attempts, 0);
+    let legacyN = 0;
+    try{ const v=localStorage.getItem("b7_attempts"); if(v) legacyN = (JSON.parse(v)||[]).length; }catch(e){}
+    const found = el("div","gfound");
+    if(sum.length){
+      found.classList.add("has");
+      found.innerHTML = `<b>这个浏览器里有 ${sum.length} 个账户、共 ${totalRec} 条作答记录</b>`
+        + `<div class="glist">` + sum.map(a=>
+            `<span>${esc(a.name)} — ${a.attempts} 条作答 · ${a.sessions} 场 · ${a.review} 道错题</span>`).join("")
+        + `</div>`
+        + (totalRec===0 ? `<div class="gtip">账户在、但没有作答记录。如果你确定练过题，可能是在另一个浏览器或另一台设备上。</div>` : "")
+        + `<div class="gtip">忘了密码就点「找回」，重设密码不会丢记录。</div>`;
+    }else if(legacyN){
+      found.classList.add("has");
+      found.innerHTML = `<b>检测到 ${legacyN} 条还没归属账户的作答记录</b>
+        <div class="gtip">这是账户系统上线前存下的。<b>点「注册」建一个账户，这些记录会自动转到你名下。</b></div>`;
+    }else{
+      found.innerHTML = `<b>这个浏览器里没有任何账户和练习记录</b>
+        <div class="gtip">如果你之前练过题，那些记录在你当时用的那个<b>浏览器</b>里
+          （换了浏览器、换了设备、或开过无痕窗口都会这样）——换回去打开这个网址即可。<br>
+          也可以先在这里注册一个新账户，之后用「设置 → 练习数据 → 导入」把导出过的进度 JSON 导进来。</div>`;
+    }
+    card.appendChild(found);
 
     const tabs = el("div","gtabs");
     const tabList = known.length ? [["login","登录"],["register","注册"],["recover","找回"]]

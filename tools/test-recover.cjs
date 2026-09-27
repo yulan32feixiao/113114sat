@@ -71,6 +71,33 @@ const step=(n,f)=>{try{const r=f();console.log(`  ok  ${n}${r?" — "+r:""}`);}
       throw new Error(`前 ${JSON.stringify(before)} 后 ${JSON.stringify(after)}`);
     return `作答 ${after[0]} · 场次 ${after[1]} · 标记 ${after[2]} · 错题 ${after[3]}（与重设前一致）`;});
 
+  // 登录页三种状态的提示
+  console.log("\n=== 登录页自检提示 ===");
+  step("重复调用不叠加登录层",()=>{ ev(`showAuth(); showAuth()`);
+    const n=D.querySelectorAll("#gate").length;
+    if(n!==1) throw new Error(n+" 层");
+    return "只有 1 层";});
+  step("有账户时报告数量",()=>{ ev(`showAuth()`);
+    const f=D.querySelector("#gate .gfound");
+    if(!f) throw new Error("没有自检块");
+    if(!f.textContent.includes("1 个账户")) throw new Error(f.textContent.slice(0,60));
+    if(!f.textContent.includes("sandrone")) throw new Error("没列出账户名");
+    return f.textContent.replace(/\s+/g," ").trim().slice(0,72);});
+  step("无账户但有旧数据时引导注册",()=>{
+    ev(`localStorage.setItem("b7_users","{}");
+        localStorage.setItem("b7_attempts", JSON.stringify([{aid:"x"},{aid:"y"},{aid:"z"}]));
+        showAuth()`);
+    const f=D.querySelector("#gate .gfound");
+    if(!f.textContent.includes("3 条还没归属账户")) throw new Error(f.textContent.slice(0,80));
+    if(!f.textContent.includes("点「注册」")) throw new Error("没引导注册");
+    return "提示 3 条待认领并引导注册";});
+  step("什么都没有时说清在哪找",()=>{
+    ev(`localStorage.removeItem("b7_attempts"); localStorage.setItem("b7_users","{}"); showAuth()`);
+    const f=D.querySelector("#gate .gfound");
+    if(!f.textContent.includes("没有任何账户")) throw new Error(f.textContent.slice(0,60));
+    if(!f.textContent.includes("浏览器")) throw new Error("没解释原因");
+    return "明确告知换回原浏览器或导入进度";});
+
   console.log(errs.length?`\n失败 ${errs.length} 项`:"\n全部通过 ✓");
   process.exit(errs.length?1:0);
 })();
