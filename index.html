@@ -390,6 +390,78 @@ body.dragging .pane{pointer-events:none}
 .provord{font-size:10.5px;color:var(--ink-3)}
 .provstat{display:block;font-size:11.5px;margin-top:8px;min-height:15px;color:var(--ink-3)}
 .provstat.ok{color:var(--ok)} .provstat.bad{color:var(--bad)}
+.sprbox input.bad{border-color:var(--bad);background:var(--bad-soft)}
+.sprfb{font-family:var(--f-num);font-size:11.5px;color:var(--ink-3);min-height:16px}
+.sprfb.bad{color:var(--bad)}
+.sprpad{display:flex;flex-direction:column;gap:5px;max-width:280px;margin-top:6px}
+.sprrow{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.sprkey{height:42px;border:1px solid var(--rule-2);border-radius:var(--r);background:var(--surface);
+  font-family:var(--f-num);font-size:17px;font-weight:600;color:var(--ink)}
+.sprkey:hover{background:var(--surface-2);border-color:var(--ink-3)}
+.sprkey:active{background:var(--ink);color:var(--surface)}
+.sprkey.op{color:var(--accent);font-size:19px}
+.sprkey.fn{font-family:var(--f-ui);font-size:12.5px;color:var(--ink-2)}
+.sprkey.blankkey{visibility:hidden}
+.calcpanel{display:flex;flex-direction:column;border-left:1px solid var(--rule);background:var(--surface-2);
+  min-width:250px;max-width:300px;padding-bottom:10px;overflow-y:auto}
+.calchead{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--rule)}
+.calchead .eyebrow{flex:1}
+.calclink{font-size:10.5px;color:var(--accent);text-decoration:none;white-space:nowrap}
+.calcscreen{background:var(--surface);border-bottom:1px solid var(--rule);padding:10px 12px;text-align:right}
+.cexpr{font-family:var(--f-num);font-size:13px;color:var(--ink-2);min-height:18px;word-break:break-all}
+.cans{font-family:var(--f-num);font-size:22px;font-weight:700;letter-spacing:-.02em;min-height:28px;word-break:break-all}
+.cans.err{font-size:12px;font-weight:500;color:var(--bad)}
+.calcpad{display:flex;flex-direction:column;gap:4px;padding:10px 12px}
+.calcrow{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.calckey{height:36px;border:1px solid var(--rule-2);border-radius:var(--r);background:var(--surface);
+  font-family:var(--f-num);font-size:14px;font-weight:600;color:var(--ink)}
+.calckey:hover{background:var(--surface-2)}
+.calckey:active{background:var(--ink);color:var(--surface)}
+.calckey.op{color:var(--accent)}
+.calckey.fn{font-family:var(--f-ui);font-size:11px;color:var(--ink-2)}
+.calckey.eq{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.calcnote{font-size:10.5px;line-height:1.6;color:var(--ink-3);padding:0 12px}
+@media(max-width:900px){.calcpanel{max-width:none;border-left:none;border-top:1px solid var(--rule)}}
+.scorecard{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center;
+  background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--accent);
+  border-radius:var(--r);padding:18px 22px;margin-bottom:16px}
+@media(max-width:640px){.scorecard{grid-template-columns:1fr}}
+.scmain b{display:block;font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1.1;margin:3px 0}
+.scsub{font-size:11px;color:var(--ink-3);font-family:var(--f-num)}
+.scsecs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.scsecs{grid-template-columns:1fr}}
+.scsec b{display:block;font-size:19px;font-weight:700;letter-spacing:-.02em;line-height:1.2;margin:2px 0}
+.rgrid{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
+.rcell{position:relative;width:30px;height:30px;border-radius:var(--r);font-family:var(--f-num);
+  font-size:11.5px;font-weight:700;border:1px solid transparent}
+.rcell.ok{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.rcell.no{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+.rcell.skip{background:var(--surface-2);color:var(--ink-3);border-color:var(--rule-2)}
+.rcell:hover{outline:2px solid var(--ink);outline-offset:1px}
+.rcell.mk::after{content:"";position:absolute;top:-2px;right:-2px;width:7px;height:7px;
+  background:var(--accent);border:1px solid var(--surface);border-radius:50%}
+.rlegend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--ink-2);margin-top:6px}
+.rlegend .dim{color:var(--ink-3)}
+.rlegend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;
+  vertical-align:-1px;border:1px solid transparent}
+.rlegend .sw.ok{background:var(--ok-soft);border-color:var(--ok)}
+.rlegend .sw.no{background:var(--bad-soft);border-color:var(--bad)}
+.rlegend .sw.skip{background:var(--surface-2);border-color:var(--rule-2)}
+.rlegend .sw.mk{background:var(--accent)}
+.reccard{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);margin-bottom:7px;overflow:hidden}
+.reccard.open{border-color:var(--rule-2);box-shadow:var(--shadow)}
+.rechead{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:12px 14px}
+.rechead:hover{background:var(--surface-2)}
+.rmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rtop{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rtop b{font-size:13.5px;font-weight:600}
+.rsub{font-size:11px;color:var(--ink-3)}
+.rnums{display:flex;align-items:center;gap:16px;flex:none}
+@media(max-width:700px){.rnums .skn{display:none}}
+.recbody{padding:4px 15px 16px;border-top:1px solid var(--rule)}
+.recsk{font-size:12px;color:var(--ink-2);margin-top:12px;line-height:1.6;
+  background:var(--surface-2);border-radius:var(--r);padding:9px 12px}
+select.dompick{width:auto;min-width:150px;font-size:12px;padding:4px 8px}
 .duegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px;margin:-14px 0 26px}
 .duebox{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:13px 15px}
 .dbtop{display:flex;align-items:baseline;gap:8px}
@@ -559,6 +631,7 @@ textarea.pref{font:inherit;font-size:13.5px;line-height:1.6;width:100%;padding:1
   <div class="brand"><span class="mk"></span>Band Seven</div>
   <nav class="tabs">
     <button data-view="home" aria-current="page">控制台</button>
+    <button data-view="records">练习记录</button>
     <button data-view="log">错题本</button>
     <button data-view="vocab">生词本</button>
     <button data-view="paper">导入试卷</button>
@@ -1098,7 +1171,7 @@ function render(){
   document.querySelectorAll("[data-keepscroll]").forEach(e=>{ keep[e.dataset.keepscroll]=e.scrollTop; });
   const y = window.scrollY;
   const app=$("#app"); app.innerHTML="";
-  ({home:renderHome, log:renderLog, vocab:renderVocab, paper:renderImport,
+  ({home:renderHome, records:renderRecords, log:renderLog, vocab:renderVocab, paper:renderImport,
     settings:renderSettings, source:renderSource}[view])(app);
   document.querySelectorAll("[data-keepscroll]").forEach(e=>{
     if(keep[e.dataset.keepscroll]!=null) e.scrollTop = keep[e.dataset.keepscroll];
@@ -1348,6 +1421,25 @@ function renderHome(app){
       rblk.appendChild(c);
     });
     app.appendChild(rblk);
+  }
+
+  // 标记速刷
+  const mkIds = Object.keys(marks).filter(id=>BYID[id]);
+  if(mkIds.length){
+    const c = el("div","duecard");
+    c.style.borderLeftColor = "var(--ink-3)";
+    const bySec = {1:0,2:0};
+    mkIds.forEach(id=>{ bySec[BYID[id].sec] = (bySec[BYID[id].sec]||0)+1; });
+    c.innerHTML = `<span class="n" style="color:var(--ink)">${mkIds.length}</span>
+      <span class="t"><b>我标记的题</b>
+        <span>R&W ${bySec[1]||0} 题 · Math ${bySec[2]||0} 题　答题时按「标记」收进来的</span></span>`;
+    const go = el("button","primary","直接练");
+    go.onclick=()=>startRun(mkIds.slice(0,25).map(id=>BYID[id]), {label:"标记速刷", timed:false});
+    c.appendChild(go);
+    const look = el("button","ghost","只看");
+    look.onclick=()=>openFullscreen(mkIds.map(id=>BYID[id]), "我标记的题", 0, {reveal:true});
+    c.appendChild(look);
+    app.appendChild(c);
   }
 
   // 今日待复习
@@ -1689,7 +1781,8 @@ function buildStage(sec, which, used){
 function startMock(kind){
   const used = new Set();
   const secs = kind==="full" ? [1,2] : [kind];
-  const plan = {kind, secs, used, stages:[], si:0, results:[], startTs:Date.now()};
+  const plan = {kind, secs, used, stages:[], si:0, results:[], startTs:Date.now(),
+                sid:"s"+Date.now().toString(36)+"m"};
   plan.stages.push(buildStage(secs[0], "M1", used));
   mockPlan = plan;
   beginStage();
@@ -1705,6 +1798,7 @@ function beginStage(){
     deadline: Date.now() + st.minutes*60000,
     state: st.qs.map(()=>({picked:null, sub:false, ok:null, ms:0, marked:false, struck:[], aid:null, why:null})),
     written:[], prevReview:{},
+    sid: (mockPlan && mockPlan.sid) || ("s"+Date.now().toString(36)),
     t0: Date.now(), total0: Date.now(), pausedTotal:0
   };
   $("#view-run").classList.remove("hide");
@@ -1780,12 +1874,28 @@ function drawBreak(minutes, next){
 }
 
 /* ============ practice run ============ */
+function autoLabel(qs, base){
+  const d = new Date(), p=n=>String(n).padStart(2,"0");
+  const when = `${d.getMonth()+1}月${d.getDate()}日 ${p(d.getHours())}:${p(d.getMinutes())}`;
+  let what = base;
+  if(!what){
+    const sks = [...new Set(qs.map(q=>q.sk))];
+    const secs = [...new Set(qs.map(q=>q.sec))];
+    what = sks.length===1 ? sks[0]
+         : secs.length===1 ? (secs[0]===1?"Reading & Writing":"Math")
+         : "混合";
+  }
+  return `${when} · ${what} · ${qs.length}题`;
+}
 function startRun(qs, opt){
   if(!qs || !qs.length){ toast("没有符合条件的题"); return; }
   sessionAnalysis = "";
+  opt = Object.assign({}, opt);
+  opt.label = autoLabel(qs, opt.label);
   const blind = opt.blind!=null ? opt.blind : (settings.reveal!=="now");
   run = { qs, i:0, label:opt.label, timed:opt.timed!==false, finished:false, review:!!opt.review, blind,
           written:[], prevReview:{},
+          sid: "s" + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
           state: qs.map(()=>({picked:null, sub:false, ok:null, ms:0, marked:false, struck:[], aid:null, why:null})),
           t0: Date.now(), total0: Date.now() };
   $("#view-run").classList.remove("hide");
@@ -1805,7 +1915,7 @@ async function gradeAll(){
     run.written.push(st.aid);
     await recordAttempt({aid:st.aid, qid:q.id, eid:q.eid, sec:q.sec, dom:q.dom, sk:q.sk,
       df:q.df, bd:q.bd, ty:q.ty, picked:st.picked, correct:q.an.join("|"), ok:st.ok,
-      ms:st.ms, why:null, ts:Date.now(), session:run.label, review:!!run.review});
+      ms:st.ms, why:null, ts:Date.now(), session:run.label, sid:run.sid, review:!!run.review});
     if(run.review && reviewQ[q.id]) gradeReview(q.id, st.ok);
     else if(!st.ok) collect(q.id, null);
   }
@@ -1823,8 +1933,10 @@ async function endRun(){
   const activeMs = run.state.reduce((t,s)=>t+(s.ms||0),0);
   const secs = Math.round(activeMs/1000);
   const answered = run.state.filter(s=>s.picked!=null && String(s.picked).trim()!=="").length;
-  if(answered) logSession({label:run.label, mode:"drill", startTs:run.total0, endTs:Date.now(),
-                           activeMs, n:answered, ok});   // 一题没做就不记这一场
+  if(answered) logSession({sid:run.sid, label:run.label, mode:"drill", startTs:run.total0,
+                           endTs:Date.now(), activeMs, n:answered, ok,
+                           marked: run.qs.filter(q=>marks[q.id]).length,
+                           qids: run.qs.map(q=>q.id)});   // 一题没做就不记这一场
   drawSummary(done.length, ok, secs);
 }
 /* 中途放弃这一场：把这次写进去的作答和错题集改动撤回。
@@ -1959,6 +2071,13 @@ function drawRun(){
   mk.onclick=()=>{ toggleMark(q.id); st.marked=!!marks[q.id]; drawRun(); };
   bar.appendChild(mk);
   bar.appendChild(sizeControl());
+  if(q.sec===2){
+    const cb = el("button","ghost markbtn", "计算器");
+    cb.title = "数字 SAT 的 Math 全程允许用计算器";
+    cb.setAttribute("aria-pressed", calcOpen);
+    cb.onclick=()=>{ calcOpen=!calcOpen; drawRun(); };
+    bar.appendChild(cb);
+  }
   if(!run.mock){
     const aib = el("button","ghost markbtn", "✦ AI");
     aib.title = st.sub ? "打开 AI 分析侧栏" : "交题判分后可用";
@@ -1999,6 +2118,7 @@ function drawRun(){
   const right = el("div","pane");
   const ri = el("div","pane-inner"); ri.id="qpane";
   right.appendChild(ri); body.appendChild(right);
+  if(calcOpen && q.sec===2) body.appendChild(calcPanel());
   if(aiOpen && st.sub && !run.mock) body.appendChild(aiPanel(q, st));
   root.appendChild(body);
   applySplit(body);
@@ -2033,13 +2153,34 @@ function drawRun(){
   ri.appendChild(el("div","stemtext",`<div class="qtext">${q.ste}</div>`));
   if(q.ty==="spr"){
     const box = el("div","sprbox");
-    const inp = el("input"); inp.id="sprin"; inp.type="text"; inp.placeholder="输入答案";
+    const inp = el("input"); inp.id="sprin"; inp.type="text";
+    inp.inputMode="decimal"; inp.autocomplete="off"; inp.spellcheck=false;
     inp.value = st.picked ?? ""; inp.disabled = st.sub;
-    inp.oninput = ()=>{ st.picked = inp.value.trim(); const s=$("#submitbtn"); if(s) s.disabled=!st.picked; };
-    inp.onkeydown = e=>{ if(e.key==="Enter" && !run.mock && !st.sub && st.picked) submit(); };
+    const fb = el("div","sprfb");
+    const sync = ()=>{
+      st.picked = inp.value.trim();
+      const f = sprFormat(st.picked);
+      const lim = SPR_CHARS(st.picked);
+      inp.classList.toggle("bad", !!st.picked && !f.ok);
+      fb.className = "sprfb" + (st.picked && !f.ok ? " bad" : "");
+      fb.textContent = !st.picked ? `最多 ${lim} 个字符`
+        : f.ok ? `${st.picked.length}/${lim} 个字符，格式可以`
+               : f.why;
+      const sb=$("#submitbtn"); if(sb) sb.disabled = !st.picked || !f.ok;
+    };
+    inp.oninput = sync;
+    inp.onkeydown = e=>{ if(e.key==="Enter" && !run.mock && !st.sub && sprFormat(inp.value.trim()).ok) submit(); };
     box.appendChild(inp);
-    box.appendChild(el("div","hint","填空题（student-produced response）：分数可写成 3/4 或小数；负号写 -"));
+    box.appendChild(fb);
+    if(!st.sub){
+      box.appendChild(sprKeypad(()=>inp.value, v=>{ inp.value=v; sync(); inp.focus(); }));
+      box.appendChild(el("div","hint",
+        "官方规则：正数最多 5 个字符，负数 6 个（含负号）。分数写成 7/2，带分数不接受。" +
+        "小数填不下时在第 4 位截断或四舍五入（例如 2/3 填 .6666 或 .6667，填 .66 不算对）。" +
+        "不能填逗号、百分号、美元符号。<b>答案永远是数字——π 和根号要换算成小数填。</b>"));
+    }
     ri.appendChild(box);
+    setTimeout(sync, 0);
   }else{
     const wrap = el("div","opts");
     q.op.forEach((o,k)=>{
@@ -2117,18 +2258,194 @@ function saveTime(){
 }
 function unfreeze(){ run.frozen=false; run.t0=Date.now(); }
 
-function normSpr(v){
-  return String(v).trim().replace(/\s+/g,"").replace(/^\+/,"").replace(/^0+(?=\d)/,"");
+/* ============ 计算器 ============
+   官方政策（Digital SAT Specifications Overview 原文）：
+   "Calculators are allowed throughout the Math section. A single Math section replaces the
+    separately timed no-calculator and calculator-allowed portions of the paper and pencil test."
+   所以数字 SAT 的 Math 全程可用计算器，不存在「这道题不许用」的题；R&W 不提供。
+   真考用的是内置 Desmos。这里是自带的科学计算器（无第三方依赖），
+   想练真家伙请用官方的 desmos.com/testing/cb-sat-ap/graphing。 */
+let calcOpen = false, calcExpr = "", calcAns = "", calcErr = "";
+
+function calcEval(src){
+  let s = String(src).replace(/×/g,"*").replace(/÷/g,"/").replace(/−/g,"-")
+                     .replace(/π/g,"(PI)").replace(/√/g,"sqrt");
+  if(!/^[0-9+\-*/^().,%\sPIsqrtabcdefghijklmnopqrtuvwxyz]*$/i.test(s)) throw new Error("含不支持的字符");
+  // 只允许白名单里的函数名
+  const fns = ["sqrt","abs","sin","cos","tan","asin","acos","atan","log","ln","exp","PI","E","pow","min","max","round","floor","ceil"];
+  const names = s.match(/[A-Za-z]+/g) || [];
+  for(const nm of names) if(!fns.includes(nm)) throw new Error("不支持 " + nm);
+  s = s.replace(/\^/g, "**");
+  s = s.replace(/\bln\(/g, "Math.log(").replace(/\blog\(/g, "Math.log10(");
+  ["sqrt","abs","sin","cos","tan","asin","acos","atan","exp","pow","min","max","round","floor","ceil"]
+    .forEach(f=>{ s = s.replace(new RegExp("\\b"+f+"\\(","g"), "Math."+f+"("); });
+  s = s.replace(/\bPI\b/g,"Math.PI").replace(/\bE\b/g,"Math.E");
+  s = s.replace(/(\d)\s*%/g, "($1/100)");
+  const v = Function('"use strict";return (' + s + ')')();
+  if(typeof v!=="number" || !isFinite(v)) throw new Error("结果不是有限数");
+  return v;
 }
-function sprMatch(input, keys){
-  const a = normSpr(input);
-  return keys.some(k=>{
-    const b = normSpr(k);
-    if(a===b) return true;
-    const num = s=>{ if(/^-?\d+\/\d+$/.test(s)){ const [p,r]=s.split("/"); return +p/+r; } return parseFloat(s); };
-    const x=num(a), y=num(b);
-    return isFinite(x)&&isFinite(y) && Math.abs(x-y) < 1e-6;
+
+function calcPanel(){
+  const p = el("div","calcpanel");
+  const head = el("div","calchead");
+  head.innerHTML = `<span class="eyebrow">计算器</span>`;
+  const link = el("a","calclink","官方 Desmos ↗");
+  link.href = "https://www.desmos.com/testing/cb-sat-ap/graphing";
+  link.target = "_blank"; link.rel = "noopener";
+  link.title = "真考用的就是这个。本工具自带的是科学计算器，不含作图。";
+  head.appendChild(link);
+  const x = el("button","drillbtn","收起");
+  x.onclick=()=>{ calcOpen=false; drawRun(); };
+  head.appendChild(x);
+  p.appendChild(head);
+
+  const scr = el("div","calcscreen");
+  scr.innerHTML = `<div class="cexpr">${esc(calcExpr)||"&nbsp;"}</div>
+    <div class="cans ${calcErr?"err":""}">${calcErr? esc(calcErr) : (calcAns===""?"&nbsp;":esc(calcAns))}</div>`;
+  p.appendChild(scr);
+
+  const put = v=>{ calcExpr += v; calcErr=""; live(); };
+  const live = ()=>{
+    if(!calcExpr.trim()){ calcAns=""; calcErr=""; return refresh(); }
+    try{ calcAns = String(+calcEval(calcExpr).toPrecision(12)); calcErr=""; }
+    catch(e){ calcAns=""; }     // 边打边算，没算成就先不报错
+    refresh();
+  };
+  const refresh = ()=>{ const old=document.querySelector(".calcpanel");
+    if(old) old.replaceWith(calcPanel()); };
+
+  const rows = [
+    [{t:"sin",v:"sin("},{t:"cos",v:"cos("},{t:"tan",v:"tan("},{t:"π",v:"π"},{t:"AC",act:"ac",cls:"fn"}],
+    [{t:"√",v:"√("},{t:"x²",v:"^2"},{t:"xʸ",v:"^"},{t:"(",v:"("},{t:")",v:")"}],
+    [{t:"7",v:"7"},{t:"8",v:"8"},{t:"9",v:"9"},{t:"÷",v:"/",cls:"op"},{t:"⌫",act:"del",cls:"fn"}],
+    [{t:"4",v:"4"},{t:"5",v:"5"},{t:"6",v:"6"},{t:"×",v:"*",cls:"op"},{t:"%",v:"%",cls:"op"}],
+    [{t:"1",v:"1"},{t:"2",v:"2"},{t:"3",v:"3"},{t:"−",v:"-",cls:"op"},{t:"log",v:"log("}],
+    [{t:"0",v:"0"},{t:".",v:"."},{t:"E",v:"E"},{t:"+",v:"+",cls:"op"},{t:"=",act:"eq",cls:"eq"}],
+  ];
+  const pad = el("div","calcpad");
+  rows.forEach(r=>{
+    const rr = el("div","calcrow");
+    r.forEach(k=>{
+      const b = el("button","calckey"+(k.cls?" "+k.cls:""), k.t);
+      b.onclick=()=>{
+        if(k.act==="ac"){ calcExpr=""; calcAns=""; calcErr=""; refresh(); }
+        else if(k.act==="del"){ calcExpr=calcExpr.slice(0,-1); live(); }
+        else if(k.act==="eq"){
+          try{ calcAns=String(+calcEval(calcExpr).toPrecision(12)); calcErr=""; }
+          catch(e){ calcErr=e.message; calcAns=""; }
+          refresh();
+        } else put(k.v);
+      };
+      rr.appendChild(b);
+    });
+    pad.appendChild(rr);
   });
+  p.appendChild(pad);
+  p.appendChild(el("div","calcnote",
+    "数字 SAT 的 Math 全程允许用计算器，没有「本题禁用」的题。真考内置 Desmos，点右上角可以打开官方版练手。"));
+  return p;
+}
+
+/* ============ 填空题（student-produced response）============
+   规则原文取自官方 Bluebook 考试指令
+   （satsuite.collegeboard.org/media/pdf/english-sat-test-directions-bb.pdf）：
+   · 找到多个正确答案时只填一个
+   · 正数最多 5 个字符，负数最多 6 个（含负号）
+   · 分数填不下就填小数
+   · 小数填不下就在第 4 位截断或四舍五入
+   · 带分数（如 3½）要写成假分数 7/2 或小数 3.5
+   · 不要填百分号、逗号、美元符号
+   官方接受表（这就是「必须占满位数」的依据）：
+     3.5 → 3.5 / 3.50 / 7/2 可以；31/2、3 1/2 不行
+     ⅔  → 2/3 / .6666 / .6667 / 0.666 / 0.667 可以；0.66、.66、0.67、.67 不行
+     -⅓ → -1/3 / -.3333 / -0.333 可以；-.33、-0.33 不行 */
+
+const SPR_CHARS = v => (String(v).trim().startsWith("-") ? 6 : 5);
+
+function sprValue(s){
+  s = String(s).trim().replace(/\s+/g,"").replace(/[–—−]/g,"-");
+  if(!s) return null;
+  const f = s.match(/^(-?\d*\.?\d+)\/(-?\d*\.?\d+)$/);
+  if(f){ const b=parseFloat(f[2]); if(!b) return null; return parseFloat(f[1])/b; }
+  if(/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return parseFloat(s);
+  return null;
+}
+/* 输入合法性：只判形式，不判对错 */
+function sprFormat(s){
+  const t = String(s||"").trim();
+  if(!t) return {ok:false, why:""};
+  if(/[,%$]/.test(t)) return {ok:false, why:"不能填逗号、百分号或美元符号"};
+  if(/\s/.test(t.replace(/^\s+|\s+$/g,""))) return {ok:false, why:"带分数要写成假分数（7/2）或小数（3.5）"};
+  if(!/^-?(\d+\.?\d*|\.\d+)(\/-?(\d+\.?\d*|\.\d+))?$/.test(t))
+    return {ok:false, why:"只能填数字、小数点、斜杠和负号"};
+  const lim = SPR_CHARS(t);
+  if(t.length > lim) return {ok:false, why:`${t.startsWith("-")?"负数":"正数"}最多 ${lim} 个字符${t.startsWith("-")?"（含负号）":""}`};
+  if(sprValue(t)===null) return {ok:false, why:"这个写法解析不出数值"};
+  return {ok:true, why:""};
+}
+
+/* 判对：按官方规则，而不是简单的数值容差 */
+function sprMatch(input, keys){
+  const t = String(input||"").trim().replace(/[–—−]/g,"-");
+  if(!t || !sprFormat(t).ok) return false;
+  const norm = x => String(x).trim().replace(/[–—−]/g,"-").replace(/\s+/g,"");
+  for(const k of keys){
+    const kk = norm(k);
+    if(norm(t) === kk) return true;                       // 和答案键一字不差
+    const V = sprValue(kk);
+    if(V===null) continue;
+    const mine = sprValue(t);
+    if(mine===null) continue;
+
+    if(t.includes("/")){                                   // 分数：等值即可
+      if(Math.abs(mine - V) < 1e-9) return true;
+      continue;
+    }
+    // 小数：必须等于真值在某一位上的截断或四舍五入，
+    // 且「占满字符预算」或「本身就是有限小数且完全相等」
+    const dot = t.indexOf(".");
+    const dec = dot<0 ? 0 : t.length - dot - 1;
+    const p = Math.pow(10, dec);
+    const trunc = (V<0 ? Math.ceil(V*p) : Math.floor(V*p)) / p;
+    const round = Math.round(V*p) / p;
+    const hits = Math.abs(mine-trunc) < 1e-12 || Math.abs(mine-round) < 1e-12;
+    if(!hits) continue;
+    const exact = Math.abs(mine - V) < 1e-12;              // 有限小数写全了
+    const full  = t.length >= SPR_CHARS(t);                // 占满了输入格
+    if(exact || full) return true;
+  }
+  return false;
+}
+
+/* 官方式输入键盘：手机上打不出 / 和 - 的问题一并解决 */
+function sprKeypad(getVal, setVal){
+  const pad = el("div","sprpad");
+  const row = (keys)=>{
+    const r = el("div","sprrow");
+    keys.forEach(k=>{
+      const b = el("button","sprkey"+(k.cls?" "+k.cls:""), k.t);
+      b.type="button";
+      b.title = k.title||"";
+      b.onclick = ()=>{
+        let v = getVal();
+        if(k.act==="del") v = v.slice(0,-1);
+        else if(k.act==="clr") v = "";
+        else if(k.act==="neg") v = v.startsWith("-") ? v.slice(1) : "-"+v;
+        else v = v + k.v;
+        setVal(v);
+      };
+      r.appendChild(b);
+    });
+    return r;
+  };
+  const d = n=>({t:String(n), v:String(n)});
+  pad.appendChild(row([d(7),d(8),d(9),{t:"⌫",act:"del",cls:"fn",title:"退一格"}]));
+  pad.appendChild(row([d(4),d(5),d(6),{t:"清空",act:"clr",cls:"fn"}]));
+  pad.appendChild(row([d(1),d(2),d(3),{t:"／",v:"/",cls:"op",title:"分数线，例如 7/2"}]));
+  pad.appendChild(row([d(0),{t:".",v:".",cls:"op"},{t:"−",act:"neg",cls:"op",title:"切换正负号"},
+                       {t:"",cls:"blankkey"}]));
+  return pad;
 }
 
 async function submit(){
@@ -2145,7 +2462,7 @@ async function submit(){
   await recordAttempt({
     aid: st.aid, qid:q.id, eid:q.eid, sec:q.sec, dom:q.dom, sk:q.sk, df:q.df, bd:q.bd, ty:q.ty,
     picked: st.picked, correct: q.an.join("|"), ok: st.ok, ms: st.ms, why: null,
-    ts: Date.now(), session: run.label, review: !!run.review
+    ts: Date.now(), session: run.label, sid: run.sid, review: !!run.review
   });
   // 错题自动进错题集；复习模式下按对错升降盒子
   if(run.review && reviewQ[q.id]) gradeReview(q.id, st.ok);
@@ -2713,6 +3030,14 @@ function drawSummary(n, ok, secs){
     <div><b class="num">${n?Math.round(secs/n):0}s</b><span>均时</span></div>`;
   s.appendChild(g);
 
+  // 逐题对错一览：点方块直接看那道题
+  const rows = run.state.map((st,k)=>({q:run.qs[k], a:{picked:st.picked, ok:st.ok, ms:st.ms}}));
+  const gw = el("div"); gw.style.textAlign="left"; gw.style.marginBottom="22px";
+  gw.appendChild(el("div","eyebrow","逐题对错"));
+  gw.appendChild(gridLegend(rows));
+  gw.appendChild(resultGrid(rows, {label:run.label}));
+  s.appendChild(gw);
+
   if(wrongs.length){
     const w = el("div", null, `<div class="eyebrow" style="text-align:left;margin-bottom:8px">这组错在哪些考点</div>`);
     w.style.textAlign="left"; w.style.marginBottom="22px";
@@ -2776,6 +3101,39 @@ function drawSummary(n, ok, secs){
 }
 function closeRunSilent(){ if(run&&run._t) clearInterval(run._t); }
 
+/* ============ 模考评分 ============
+   换算表逐行取自 College Board 官方
+   SAT Practice Test #11 Scoring Guide（scoring-sat-practice-test-11-digital.pdf）
+   的 Raw Score Conversion Table。官方给的是区间（lower/upper）。
+
+   ⚠ 这张表是给纸质线性版用的：R&W 66 题、Math 54 题。
+   本工具的模考是 R&W 54 题、Math 44 题（与真考题数一致）。
+   所以先把原始分按题数等比折算到 66 / 54，再查表。
+   这一步是本工具的近似，不是 College Board 的算法 —— 真考用的是 IRT，换算表从未公开。 */
+const CONV_RW = [[200,200],[210,220],[210,220],[210,220],[210,220],[210,230],[220,240],[220,240],
+[220,250],[230,260],[230,270],[240,280],[250,290],[250,300],[260,310],[270,320],[270,330],[290,330],
+[300,340],[310,350],[320,360],[330,370],[340,380],[340,380],[350,390],[360,400],[360,400],[370,410],
+[380,420],[390,430],[390,430],[400,440],[410,450],[420,460],[430,470],[440,480],[450,490],[450,490],
+[460,500],[470,510],[470,530],[480,540],[490,550],[500,560],[510,570],[520,580],[530,590],[540,600],
+[560,620],[570,630],[580,640],[590,650],[600,660],[620,680],[630,690],[640,700],[660,700],[680,720],
+[690,730],[700,740],[710,750],[720,760],[730,770],[740,780],[760,780],[780,800],[800,800]];
+const CONV_MATH = [[200,200],[210,220],[210,220],[210,230],[220,240],[230,250],[240,270],[250,290],
+[260,320],[270,330],[290,350],[310,350],[330,370],[340,380],[350,390],[350,390],[360,400],[370,410],
+[370,410],[380,420],[390,430],[390,430],[400,440],[410,450],[410,450],[420,460],[430,470],[440,480],
+[450,490],[460,500],[470,510],[480,520],[490,530],[490,550],[500,560],[510,570],[530,590],[540,600],
+[550,610],[560,620],[570,630],[590,650],[600,660],[610,670],[620,680],[640,700],[650,710],[660,720],
+[680,740],[700,760],[710,770],[730,780],[750,800],[770,800],[790,800]];
+const PAPER_MAX = {1:66, 2:54};      // 官方评分表对应的题数
+const MOCK_MAX  = {1:54, 2:44};      // 本工具模考（与真考一致）
+
+function scaledScore(sec, raw, total){
+  const tbl = sec===1 ? CONV_RW : CONV_MATH;
+  const src = total || MOCK_MAX[sec];
+  const eq = Math.max(0, Math.min(PAPER_MAX[sec], Math.round(raw / src * PAPER_MAX[sec])));
+  const [lo,hi] = tbl[eq];
+  return {lo, hi, eq, paperMax:PAPER_MAX[sec]};
+}
+
 /* ============ 模考报告 ============
    这里刻意不给一个精确分数。College Board 的自适应算分基于 IRT，换算表从未公开，
    任何第三方"换算"都是猜的。下面给的是原始对错 + 分数段证据 + 一个标明规则的估算区间。 */
@@ -2802,9 +3160,11 @@ function drawMockReport(){
     allRows.push({q, s, ok:s.ok, bd:q.bd, dom:q.dom, sk:q.sk, sec:q.sec, df:q.df});
   }));
 
-  logSession({label:"模考 · "+(plan.kind==="full"?"完整":MOCK[plan.kind].name), mode:"mock",
+  logSession({sid:plan.sid, label:"模考 · "+(plan.kind==="full"?"完整":MOCK[plan.kind].name), mode:"mock",
               startTs:plan.startTs, endTs:Date.now(), activeMs,
-              n:allRows.length, ok:allRows.filter(r=>r.ok).length});
+              n:allRows.length, ok:allRows.filter(r=>r.ok).length,
+              marked: allRows.filter(r=>marks[r.q.id]).length,
+              qids: allRows.map(r=>r.q.id)});
 
   // 记录每一题 + 错题进错题集
   (async ()=>{
@@ -2814,7 +3174,7 @@ function drawMockReport(){
         qid:r.q.id, eid:r.q.eid, sec:r.q.sec, dom:r.q.dom, sk:r.q.sk, df:r.q.df, bd:r.q.bd, ty:r.q.ty,
         picked: r.s.picked==null? "" : r.s.picked, correct: r.q.an.join("|"),
         ok: r.ok, ms: r.s.ms||0, why: r.s.picked==null? "time" : null,
-        ts: Date.now(), session:"模考", mock:true
+        ts: Date.now(), session:"模考", sid:plan.sid, mock:true
       });
       if(!r.ok) collect(r.q.id, r.s.picked==null? "time" : null);
     }
@@ -2828,11 +3188,34 @@ function drawMockReport(){
   const body = el("div","runbody single"); const pane=el("div","pane");
   const wrap = el("div","pane-inner"); wrap.style.maxWidth="720px";
 
+  const scores = {};
+  plan.secs.forEach(sec=>{
+    const rs = allRows.filter(r=>r.sec===sec);
+    if(rs.length) scores[sec] = scaledScore(sec, rs.filter(r=>r.ok).length, rs.length);
+  });
+  const tot = Object.values(scores).reduce((a,x)=>({lo:a.lo+x.lo, hi:a.hi+x.hi}), {lo:0,hi:0});
+  const full = plan.secs.length===2;
+
   const head = el("div","pagehead");
   head.innerHTML = `<div><h1>模考报告</h1>
     <p>用时 ${minutesOf(activeMs)} 分钟 · 共 ${allRows.length} 题 · 答对 ${allRows.filter(r=>r.ok).length} 题
        · 未作答 ${allRows.filter(r=>r.s.picked==null).length} 题</p></div>`;
   wrap.appendChild(head);
+
+  const sc = el("div","scorecard");
+  sc.innerHTML = `<div class="scmain">
+      <span class="eyebrow">${full?"总分估算":"单 section 估算"}</span>
+      <b class="num">${tot.lo} – ${tot.hi}</b>
+      <span class="scsub">${full?"满分 1600　·　目标 "+(TARGET[1]+TARGET[2]):"满分 800"}</span>
+    </div>
+    <div class="scsecs">${plan.secs.map(sec=>{
+      const s2=scores[sec]; if(!s2) return "";
+      const rs=allRows.filter(r=>r.sec===sec);
+      return `<div class="scsec"><span class="eyebrow">${MOCK[sec].name}</span>
+        <b class="num">${s2.lo} – ${s2.hi}</b>
+        <span class="scsub num">原始分 ${rs.filter(r=>r.ok).length}/${rs.length} → 折算 ${s2.eq}/${s2.paperMax}</span></div>`;
+    }).join("")}</div>`;
+  wrap.appendChild(sc);
 
   // 分 section 的原始分与模块路由
   plan.secs.forEach(sec=>{
@@ -2878,11 +3261,17 @@ function drawMockReport(){
   });
 
   wrap.appendChild(el("div","warnbox",
-    `<p><b>这个估算不是你的 SAT 分数。</b>规则是本工具自己定的：按官方 score band 从高到低找，
-     第一个「做够 4 题且正确率 ≥60%」的 band 就是估算落点，band 对应的分数区间取自
-     Skills Insight（2026 年 7 月版 Table 3）。College Board 真正的自适应算分基于 IRT 模型、换算表从未公开，
-     任何第三方换算都是猜的。要拿真分数只能做 Bluebook 的官方完整模考。<br><br>
-     上面的原始对错数、模块路由和分 band 正确率是实打实的，可以直接用来判断薄弱环节。</p>`));
+    `<p><b>这个分数是怎么来的，以及它靠不靠谱。</b><br>
+     换算表逐行取自 College Board 官方
+     <a href="https://satsuite.collegeboard.org/media/pdf/scoring-sat-practice-test-11-digital.pdf"
+        target="_blank" rel="noopener">SAT Practice Test #11 评分表</a>，官方本身给的就是区间。<br>
+     但那张表是给<b>纸质线性版</b>用的（R&W 66 题、Math 54 题），而本工具的模考是 R&W 54 题、Math 44 题
+     （与真考题数一致）。我先把原始分<b>按题数等比折算</b>到 66 / 54 再查表——
+     <b>这步折算是本工具的近似，不是 College Board 的算法</b>。真考用 IRT 模型、换算表从未公开，
+     市面上任何「数字 SAT 换算表」都是猜的。<br>
+     所以：<b>原始分实打实，区间是估的。</b>要准确分数只能做 Bluebook 官方模考。<br><br>
+     下面每个 section 的 band 估算是另一套参考口径：按官方 score band 从高到低找，第一个「做够 4 题且
+     正确率 ≥60%」的 band 即落点，band 对应分数取自 Skills Insight（2026 年 7 月版 Table 3）。这个规则也是本工具定的。</p>`));
 
   // 分考点
   const byS = {};
@@ -2937,6 +3326,9 @@ const MAX_W = 5486400;            // 正文可用宽度约 6 英寸
 /* 把题目里的内嵌 SVG 光栅化成 PNG —— Word 不认 SVG 和 MathML */
 async function rasterizeSvg(svgEl, scale){
   scale = scale || 2;
+  const probe = document.createElement("canvas");
+  if(!probe.getContext || !probe.getContext("2d") || !probe.toBlob)
+    throw new Error("这个浏览器不支持 canvas 导出");
   const clone = svgEl.cloneNode(true);
   clone.setAttribute("xmlns","http://www.w3.org/2000/svg");
   let w = parseFloat(clone.getAttribute("width"));
@@ -2981,8 +3373,13 @@ async function collectMedia(html, media){
       ph.setAttribute("data-media", String(idx));
       (sv.closest("figure") || sv).replaceWith(ph);
     }catch(e){
-      const t = document.createTextNode(" [图形转换失败，见原题] ");
-      (sv.closest("figure") || sv).replaceWith(t);
+      // 转不成图就退回官方给的文字描述 —— 至少信息不丢
+      const d = (sv.getAttribute("aria-label")||"").replace(/\s+/g," ").trim();
+      media.failed = (media.failed||0) + 1;
+      media.failReason = media.failReason || (e && e.message) || "unknown";
+      (sv.closest("figure") || sv).replaceWith(document.createTextNode(
+        d ? `\n［图（未能转成图片，以下为官方文字描述）：${d}］\n`
+          : "\n［此处有一张图，未能转成图片，官方也没有提供文字描述］\n"));
     }
   }
   return root.innerHTML;
@@ -3215,13 +3612,17 @@ async function exportDocx(btn, items, meta, analysis){
       const note = notesByQ[it.q.id] && notesByQ[it.q.id].text;
       x += await questionXml(it.q, it.st || it.a, i+1, note, media);
     }
-    x += wP(`本文档含 ${media.length} 张由原题 SVG 转换的图片。题目与官方解析版权归 College Board 所有，仅供个人备考使用。`,
+    const failN = media.failed || 0;
+    x += wP(`本文档含 ${media.length} 张由原题 SVG 转换的图片`
+            + (failN? `；另有 ${failN} 张未能转换（原因：${media.failReason}），已改用官方文字描述代替` : "")
+            + `。题目与官方解析版权归 College Board 所有，仅供个人备考使用。`,
             {size:16, color:"8A8F84", before:200});
 
     const blob = await buildDocx(x, media);
     const name = meta.title.replace(/[\\/:*?"<>|]/g,"·").slice(0,50) + " " + stamp() + ".docx";
     saveFile(name, blob);
-    toast(`已生成 Word（${items.length} 题、${media.length} 张图）`);
+    toast(`已生成 Word：${items.length} 题、${media.length} 张图`
+          + (failN? `，${failN} 张图转换失败（${media.failReason}），已用文字描述代替` : ""));
   }catch(e){
     toast("导出失败（"+((e&&e.message)||"error")+"）");
   }finally{
@@ -3747,8 +4148,177 @@ function initHistory(){
       render(); navLock = false; return;
     }
     const v = (ev.state && ev.state.v) || (location.hash||"#home").slice(1) || "home";
-    if(["home","log","paper","settings","source","vocab"].includes(v)){ view = v; render(); }
+    if(["home","records","log","paper","settings","source","vocab"].includes(v)){ view = v; render(); }
     navLock = false;
+  });
+}
+
+/* ============ 练习记录 ============
+   一场练习 = 一条 session + 若干条 attempt。旧数据没有 sid，用时间区间兜底。 */
+function sessionAttempts(sess){
+  if(sess.sid){
+    const byId = attempts.filter(a=>a.sid===sess.sid);
+    if(byId.length) return byId;
+  }
+  const pad = 60000;   // 老记录：落在这一场起止时间内（前后各放宽 1 分钟）
+  return attempts.filter(a=> a.ts>=sess.startTs-pad && a.ts<=sess.endTs+pad
+                          && (!sess.label || a.session===sess.label));
+}
+
+/* 对错一览：一排编号方块，绿=对 红=错 灰=未答，右上角小点=已标记。点开看题。 */
+function resultGrid(rows, opt){
+  opt = opt||{};
+  const g = el("div","rgrid");
+  rows.forEach((r,i)=>{
+    const q = r.q, a = r.a;
+    const unanswered = !a || a.picked==null || String(a.picked).trim()==="";
+    const cls = unanswered ? "skip" : (a.ok ? "ok" : "no");
+    const b = el("button","rcell "+cls+(marks[q.id]?" mk":""), String(i+1));
+    b.title = `${i+1}. ${q.sk} · ${DIFF[q.df]||q.df}` +
+      (unanswered? " · 未作答" : ` · 你选 ${a.picked}，正确 ${q.an.join("/")}`) +
+      (marks[q.id]? " · 已标记":"");
+    b.onclick = ()=> openFullscreen(rows.map(x=>x.q), opt.label||"查看", i, {reveal:true});
+    g.appendChild(b);
+  });
+  return g;
+}
+
+function gridLegend(rows){
+  const n = rows.length;
+  const ok = rows.filter(r=>r.a && r.a.ok).length;
+  const skip = rows.filter(r=>!r.a || r.a.picked==null || String(r.a.picked).trim()==="").length;
+  const mk = rows.filter(r=>marks[r.q.id]).length;
+  const l = el("div","rlegend");
+  l.innerHTML = `<span><i class="sw ok"></i>对 ${ok}</span>
+    <span><i class="sw no"></i>错 ${n-ok-skip}</span>
+    ${skip?`<span><i class="sw skip"></i>未答 ${skip}</span>`:""}
+    ${mk?`<span><i class="sw mk"></i>标记 ${mk}</span>`:""}
+    <span class="dim">点方块看那道题</span>`;
+  return l;
+}
+
+function sessionRows(sess){
+  const list = sessionAttempts(sess);
+  const seen = new Set();
+  const rows = [];
+  // 优先按这一场记下的题序还原
+  (sess.qids||[]).forEach(qid=>{
+    if(!BYID[qid]) return;
+    const a = list.filter(x=>x.qid===qid).slice(-1)[0] || null;
+    rows.push({q:BYID[qid], a}); seen.add(qid);
+  });
+  list.forEach(a=>{ if(!seen.has(a.qid) && BYID[a.qid]){ rows.push({q:BYID[a.qid], a}); seen.add(a.qid); } });
+  return rows;
+}
+
+let openSession = null;
+
+function renderRecords(app){
+  const head = el("div","pagehead");
+  head.innerHTML = `<div><h1>练习记录</h1>
+    <p>每一场练过什么、哪些对哪些错哪些标记了，点开一目了然。可以直接重做错题或整场重来。</p></div>`;
+  app.appendChild(head);
+
+  if(!sessions.length){
+    app.appendChild(el("div","empty","还没有练习记录。去控制台做一组题就会出现在这里。"));
+    return;
+  }
+
+  const ts = timeStats();
+  const strip = el("div","timestrip");
+  strip.innerHTML = `
+    <div><b class="num">${sessions.length}</b><span>总场次</span></div>
+    <div><b class="num">${minutesOf(ts.today)}</b><span>今天（分钟）</span></div>
+    <div><b class="num">${minutesOf(ts.week)}</b><span>本周（分钟）</span></div>
+    <div><b class="num">${(ts.all/3600000).toFixed(1)}</b><span>累计（小时）</span></div>
+    <div><b class="num">${ts.days}</b><span>练习天数</span></div>`;
+  app.appendChild(strip);
+
+  sessions.slice().reverse().forEach(sess=>{
+    const key = sess.sid || String(sess.startTs);
+    const open = openSession===key;
+    const card = el("div","reccard"+(open?" open":""));
+    const acc = sess.n ? Math.round(sess.ok/sess.n*100) : 0;
+    const d = new Date(sess.endTs);
+    const head2 = el("button","rechead");
+    head2.innerHTML = `
+      <span class="rmain">
+        <span class="rtop"><b>${esc(sess.label||"练习")}</b>
+          ${sess.mode==="mock"?'<span class="kindtag rule">模考</span>':''}</span>
+        <span class="rsub num">${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}
+          ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}
+          · ${minutesOf(sess.activeMs)} 分钟${sess.n?` · 均 ${Math.round(sess.activeMs/sess.n/1000)} 秒/题`:""}</span>
+      </span>
+      <span class="rnums">
+        <span class="skn"><b class="num">${sess.ok}/${sess.n}</b><i>对/做</i></span>
+        ${sess.marked?`<span class="skn"><b class="num">${sess.marked}</b><i>标记</i></span>`:""}
+        <span class="acc"><span class="accbar"><i class="${acc>=85?"good":(acc<65?"warn":"")}"
+          style="width:${acc}%"></i></span><span class="accnum">${acc}%</span></span>
+      </span>
+      <span class="skchev">${open?"▾":"▸"}</span>`;
+    head2.onclick=()=>{ openSession = open? null : key; render(); };
+    card.appendChild(head2);
+
+    if(open){
+      const body = el("div","recbody");
+      const rows = sessionRows(sess);
+      if(!rows.length){
+        body.appendChild(el("div","hint","这一场的逐题记录找不到了（可能是很早的记录，或作答已被清空）。"));
+      }else{
+        body.appendChild(gridLegend(rows));
+        body.appendChild(resultGrid(rows, {label:sess.label}));
+        // 按考点小结
+        const bySk = {};
+        rows.forEach(r=>{ const k=r.q.sk; (bySk[k]=bySk[k]||{n:0,ok:0}); bySk[k].n++; if(r.a&&r.a.ok) bySk[k].ok++; });
+        const wrongSk = Object.entries(bySk).filter(([,v])=>v.ok<v.n)
+          .sort((a,b)=>(a[1].ok/a[1].n)-(b[1].ok/b[1].n));
+        if(sess.mode==="mock" && rows.length){
+          const bySec = {};
+          rows.forEach(r=>{ const k=r.q.sec; (bySec[k]=bySec[k]||{n:0,ok:0}); bySec[k].n++; if(r.a&&r.a.ok) bySec[k].ok++; });
+          const parts = Object.entries(bySec).map(([sec,v])=>{
+            const s2 = scaledScore(+sec, v.ok, v.n);
+            return `${(MOCK[sec]||{name:"?"}).name} <b>${s2.lo}–${s2.hi}</b>（原始分 ${v.ok}/${v.n}）`;
+          });
+          const totv = Object.entries(bySec).reduce((a,[sec,v])=>{
+            const s2=scaledScore(+sec,v.ok,v.n); return {lo:a.lo+s2.lo, hi:a.hi+s2.hi}; },{lo:0,hi:0});
+          body.appendChild(el("div","recsk",
+            `估算分：${parts.join("　·　")}` +
+            (Object.keys(bySec).length===2? `　→　总分 <b>${totv.lo}–${totv.hi}</b>`:"") +
+            `<br><span style="color:var(--ink-3)">按官方 Practice Test 11 评分表、按题数等比折算，折算方式为本工具近似。</span>`));
+        }
+        if(wrongSk.length){
+          body.appendChild(el("div","recsk",
+            "失分考点：" + wrongSk.map(([k,v])=>`${esc(k)} ${v.ok}/${v.n}`).join("　·　")));
+        }
+        const wrongQs = rows.filter(r=>r.a && !r.a.ok).map(r=>r.q);
+        const markedQs = rows.filter(r=>marks[r.q.id]).map(r=>r.q);
+        const foot = el("div","btnrow"); foot.style.justifyContent="flex-start"; foot.style.marginTop="14px";
+        const mk=(t,fn,primary)=>{ const b=el("button",primary?"primary":"drillbtn",t); b.onclick=fn; foot.appendChild(b); return b; };
+        mk("逐题看解析", ()=>openFullscreen(rows.map(r=>r.q), sess.label||"查看", 0, {reveal:true}));
+        if(wrongQs.length) mk(`重做错的 ${wrongQs.length} 题`,
+          ()=>startRun(wrongQs,{label:"重做 · "+(sess.label||"练习"), timed:false}), true);
+        if(markedQs.length) mk(`练标记的 ${markedQs.length} 题`,
+          ()=>startRun(markedQs,{label:"标记 · "+(sess.label||"练习"), timed:false}));
+        mk("整场重做", ()=>startRun(rows.map(r=>r.q),{label:(sess.label||"练习")+" 重做", timed:false}));
+        const dl = mk("导出 Word", ()=>exportDocx(dl, rows.map(r=>({q:r.q, a:r.a})),
+          {title:"SAT 练习 · "+(sess.label||""), n:sess.n, ok:sess.ok,
+           secs:Math.round(sess.activeMs/1000)}, ""));
+        const ren = mk("重命名", ()=>{
+          const v = prompt("这一场的名字", sess.label||"");
+          if(v==null) return;
+          sess.label = v.trim() || sess.label;
+          lsSet(K("sessions"), sessions); render();
+        });
+        const del = mk("删除这条", async ()=>{
+          if(!confirm("只删这条练习记录，作答和错题集保留。确定？")) return;
+          sessions = sessions.filter(x=>(x.sid||String(x.startTs))!==key);
+          lsSet(K("sessions"), sessions); openSession=null; render();
+        });
+        body.appendChild(foot);
+      }
+      card.appendChild(body);
+    }
+    app.appendChild(card);
   });
 }
 
@@ -3871,7 +4441,8 @@ function openFullscreen(qs, label, startIdx, opt){
 function renderLog(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div><h1>${listTab==="wrong"?"错题本":"我标记的题"}</h1>
-    <p>左边点一道题，右边直接看题目和官方解析。要一次处理多道，点「批量」打开勾选。</p></div>`;
+    <p>左边点一道题，右边看题目和官方解析。要一次处理多道，点「批量」。
+       想看「某一场练习错了哪些」请去<b>练习记录</b>，那边按场次列得更清楚。</p></div>`;
   app.appendChild(head);
 
   const tabs = el("div","gtabs"); tabs.style.maxWidth="300px"; tabs.style.marginBottom="14px";
@@ -3905,10 +4476,12 @@ function renderLog(app){
     c.onclick=()=>{logFilter[key]=logFilter[key]===v?(key==="sec"?0:""):v; picked.clear(); render();};return c;};
   bar.appendChild(mkc("Reading & Writing",1,"sec"));
   bar.appendChild(mkc("Math",2,"sec"));
-  DOM_ORDER.forEach(d=>{
-    if(logFilter.sec && DOMAINS[d].sec!==logFilter.sec) return;
-    bar.appendChild(mkc(DOMAINS[d].name, d, "dom"));
-  });
+  const dsel = el("select"); dsel.className="dompick";
+  dsel.innerHTML = `<option value="">全部 domain</option>` + DOM_ORDER
+    .filter(d=>!logFilter.sec || DOMAINS[d].sec===logFilter.sec)
+    .map(d=>`<option value="${d}" ${logFilter.dom===d?"selected":""}>${esc(DOMAINS[d].name)}</option>`).join("");
+  dsel.onchange=()=>{ logFilter.dom=dsel.value; picked.clear(); render(); };
+  bar.appendChild(dsel);
   if(listTab==="wrong"){
     const due=el("button","chip","只看今天该复习的");
     due.setAttribute("aria-pressed", logFilter.onlyDue);
@@ -3924,10 +4497,9 @@ function renderLog(app){
   // 文件夹键先算出来，并给 folder.val 一个默认值 —— 否则刚切到「按题型」时
   // 过滤结果为空，会在渲染文件夹列表之前就提前返回，等于永远选不到
   const folderKeyOf = x =>
-    folder.by==="skill"   ? x.q.sk :
-    folder.by==="month"   ? (x.a && x.a.ts ? new Date(x.a.ts).toISOString().slice(0,7).replace("-"," 年 ")+" 月"
-                                           : "（无日期）")
-                          : ((x.a && x.a.session) || "（无记录）");
+    folder.by==="skill" ? x.q.sk
+                        : (x.a && x.a.ts ? new Date(x.a.ts).toISOString().slice(0,7).replace("-"," 年 ")+" 月"
+                                         : "（无日期）");
   const folderCounts = {};
   if(folder.by!=="all") items.forEach(x=>{ const k=folderKeyOf(x); folderCounts[k]=(folderCounts[k]||0)+1; });
   const folderKeys = Object.keys(folderCounts).sort(folder.by==="month"
@@ -3993,7 +4565,7 @@ function renderLog(app){
   // —— 文件夹：全部 / 按题型 / 按作业 ——
   const fold = el("div","folders");
   const fTabs = el("div","gtabs"); fTabs.style.marginBottom="8px";
-  [["all","全部"],["skill","按题型"],["month","按月份"],["session","按作业"]].forEach(([k,t])=>{
+  [["all","全部"],["skill","按题型"],["month","按月份"]].forEach(([k,t])=>{
     const b=el("button",null,t);
     b.setAttribute("aria-current", folder.by===k?"page":"false");
     b.onclick=()=>{ folder={by:k,val:""}; picked.clear(); previewQid=null; render(); };
@@ -4341,6 +4913,128 @@ function renderImport(app){
   }
 }
 
+/* ============ 数据体检与找回 ============
+   没有服务器，所有记录都在本机 localStorage。这个面板把实际存了什么原样列出来，
+   并处理一种真实会发生的情况：账户系统上线前的数据存在无前缀的旧键里，
+   当时如果走的是「登录」而不是「注册」，迁移不会触发，数据就留在旧键没搬过来。 */
+const LEGACY_KEYS = ["b7_attempts","b7_review","b7_notes","b7_settings","b7_sessions",
+                     "b7_papers","b7_marks","b7_hls","b7_vocab","b7_threads","b7_mastered"];
+
+function scanStorage(){
+  const out = {accounts:{}, legacy:{}, other:{}, totalBytes:0};
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    const v = localStorage.getItem(k) || "";
+    out.totalBytes += k.length + v.length;
+    let n = null;
+    try{ const p=JSON.parse(v); n = Array.isArray(p)? p.length : (p&&typeof p==="object"? Object.keys(p).length : null); }catch(e){}
+    const rec = {bytes:v.length, count:n};
+    const m = k.match(/^b7:([^:]+):(.+)$/);
+    if(m){ (out.accounts[m[1]] = out.accounts[m[1]] || {})[m[2]] = rec; }
+    else if(LEGACY_KEYS.includes(k)) out.legacy[k] = rec;
+    else if(k.startsWith("b7")) out.other[k] = rec;
+  }
+  return out;
+}
+
+function adoptLegacy(){
+  let moved = [];
+  LEGACY_KEYS.forEach(k=>{
+    const v = localStorage.getItem(k);
+    if(v==null) return;
+    const name = k.replace("b7_","");
+    const target = K(name);
+    const existing = localStorage.getItem(target);
+    if(existing==null){ localStorage.setItem(target, v); moved.push(name+"（搬入）"); }
+    else {
+      // 当前账户已有同名数据：合并而不是覆盖
+      try{
+        const a=JSON.parse(existing), b=JSON.parse(v);
+        if(Array.isArray(a)&&Array.isArray(b)){
+          const seen=new Set(a.map(x=>x.aid||x.sid||JSON.stringify(x)));
+          const add=b.filter(x=>!seen.has(x.aid||x.sid||JSON.stringify(x)));
+          localStorage.setItem(target, JSON.stringify(a.concat(add)));
+          moved.push(`${name}（合并 +${add.length}）`);
+        }else if(a&&b&&typeof a==="object"&&typeof b==="object"){
+          let c=0; Object.keys(b).forEach(kk=>{ if(!(kk in a)){ a[kk]=b[kk]; c++; } });
+          localStorage.setItem(target, JSON.stringify(a));
+          moved.push(`${name}（合并 +${c}）`);
+        }
+      }catch(e){}
+    }
+  });
+  return moved;
+}
+
+function renderDiag(app){
+  const b = el("section","block");
+  b.innerHTML = `<div class="blockhead"><h2>数据体检</h2>
+    <span class="note">这台浏览器里实际存了什么，原样列出</span></div>`;
+  const card = el("div","builder");
+  const s = scanStorage();
+
+  const legacyN = Object.keys(s.legacy).length;
+  if(legacyN){
+    const warn = el("div","gnote");
+    const att = s.legacy["b7_attempts"];
+    warn.innerHTML = `<b>发现 ${legacyN} 项没有归属账户的旧数据</b>${
+      att&&att.count!=null? `，其中作答记录 <b>${att.count}</b> 条` : ""}。
+      这是账户系统上线前存下的。点下面的按钮搬进当前账户「${esc(CURRENT)}」——
+      已有同名数据会<b>合并</b>而不是覆盖。`;
+    const go = el("button","primary","搬进当前账户");
+    go.style.marginTop="9px";
+    go.onclick=()=>{
+      const moved = adoptLegacy();
+      if(!moved.length) return toast("没有可搬的数据");
+      LEGACY_KEYS.forEach(k=>localStorage.removeItem(k));
+      loadAll(); render();
+      toast("已搬入：" + moved.join("、"));
+    };
+    warn.appendChild(go);
+    card.appendChild(warn);
+  }
+
+  const mkTable = (title, obj)=>{
+    const keys = Object.keys(obj);
+    if(!keys.length) return null;
+    const wrap = el("div"); wrap.style.marginBottom="14px";
+    wrap.appendChild(el("div","eyebrow", title));
+    const tw = el("div","tablewrap"); tw.style.marginTop="6px";
+    const t = el("table","skills");
+    t.innerHTML = `<thead><tr><th>项目</th><th class="r">条数</th><th class="r">占用</th></tr></thead>`;
+    const tb = el("tbody");
+    keys.sort().forEach(k=>{
+      const r = obj[k];
+      const tr = el("tr","skillrow");
+      tr.innerHTML = `<td class="skname">${esc(k)}</td>
+        <td class="r skmeta">${r.count==null?"—":r.count}</td>
+        <td class="r skmeta">${(r.bytes/1024).toFixed(1)} KB</td>`;
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); tw.appendChild(t); wrap.appendChild(tw);
+    return wrap;
+  };
+
+  const NAME = {attempts:"作答记录", review:"错题集", notes:"AI 拆解存档", sessions:"练习场次",
+    marks:"标记的题", hls:"划词高亮", vocab:"生词本", threads:"AI 对话", mastered:"已掌握",
+    papers:"导入的试卷", settings:"设置", providers:"模型配置", timed:"计时开关"};
+  Object.keys(s.accounts).sort().forEach(acct=>{
+    const pretty = {};
+    Object.entries(s.accounts[acct]).forEach(([k,v])=>{ pretty[(NAME[k]||k)] = v; });
+    const tbl = mkTable(`账户「${acct}」${acct===CURRENT?"（当前）":""}`, pretty);
+    if(tbl) card.appendChild(tbl);
+  });
+  if(legacyN) card.appendChild(mkTable("未归属账户的旧数据", s.legacy));
+  if(Object.keys(s.other).length) card.appendChild(mkTable("其它", s.other));
+
+  card.appendChild(el("div","hint",
+    `localStorage 合计占用约 ${(s.totalBytes/1024).toFixed(0)} KB（浏览器上限通常 5 MB）。
+     <b>清浏览器缓存、换浏览器、无痕窗口都会让这些数据消失</b>，
+     所以「练习数据 → 导出进度」建议每周做一次。`));
+  b.appendChild(card);
+  app.appendChild(b);
+}
+
 function renderProviders(app){
   const b1 = el("section","block");
   b1.innerHTML = `<div class="blockhead"><h2>AI 模型</h2>
@@ -4429,6 +5123,8 @@ function renderSettings(app){
     <p>API key 只存在你自己这台浏览器里，不会上传，也不在网站代码里。
        每个用这个网站的人都要填自己的 key。</p></div>`;
   app.appendChild(head);
+
+  renderDiag(app);
 
   /* --- 账户与水平 --- */
   const b0 = el("section","block");
