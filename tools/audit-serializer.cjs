@@ -29,7 +29,7 @@ const w=dom.window,ev=s=>w.eval(s);
     'sr-only 占位残留': t=>/[_]{3,}\s*blank|blank\s*[_]{3,}/i.test(t),
     'HTML 实体未解码':      t=>/&(nbsp|amp|lt|gt|rsquo|ldquo|rdquo|#\d+);/.test(t),
     '标签泄漏':             t=>/<\/?[a-zA-Z][^>]*>/.test(t),
-    '图形无描述':           t=>/官方未提供文字描述/.test(t),
+
     '公式降级为占位':       t=>/〔公式〕/.test(t),
     '题干为空':             t=>!/【问题】\s*\S/.test(t),
     '选项为空':             t=>{
@@ -52,6 +52,14 @@ const w=dom.window,ev=s=>w.eval(s);
   }
   console.log(`扫描 ${N} 道题\n`);
   let fail=0;
+  // College Board 本身没给 aria-label 的图：已知恰好 3 道，多了说明是新的回归
+  let noDesc=0;
+  for(let i=0;i<N;i++) if(/官方未提供文字描述/.test(ev(`serializeQuestion(BANK[${i}], null)`))) noDesc++;
+  const NO_DESC_KNOWN = 3;
+  const descBad = noDesc !== NO_DESC_KNOWN;
+  if(descBad) fail++;
+  console.log(`  ${descBad?"✗":"✓"} 官方未提供图描述的题: ${noDesc}（已知 ${NO_DESC_KNOWN} 道，`
+    + `这些题系统提示会明确告知模型看不到图）`);
   for(const [k,v] of Object.entries(counts)){
     const bad=v>0; if(bad) fail++;
     console.log(`  ${bad?"✗":"✓"} ${k}: ${v}`);
