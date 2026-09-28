@@ -1436,6 +1436,7 @@ function skillCard(s){
   const t1=el("label","toggle"); const c1=el("input"); c1.type="checkbox"; c1.checked=k.timed;
   c1.onchange=()=>{ k.timed=c1.checked; };
   t1.appendChild(c1); t1.appendChild(document.createTextNode("计时"));
+  t1.title = "按官方配速给这组题一个总时限，到点自动交卷";
   const t2=el("label","toggle"); const c2=el("input"); c2.type="checkbox"; c2.checked=k.fresh;
   c2.onchange=()=>{ k.fresh=c2.checked; render(); };
   t2.appendChild(c2); t2.appendChild(document.createTextNode("跳过做过的"));
@@ -1806,7 +1807,9 @@ function app_rebuildBuilder(root){
   t1.appendChild(c1); t1.appendChild(document.createTextNode("跳过做过的题")); opts.appendChild(t1);
   const t2=el("label","toggle"); const c2=el("input"); c2.type="checkbox"; c2.checked=cfg.timed;
   c2.onchange=()=>{cfg.timed=c2.checked;};
-  t2.appendChild(c2); t2.appendChild(document.createTextNode("计时（按考试节奏）")); opts.appendChild(t2);
+  t2.appendChild(c2); t2.appendChild(document.createTextNode("计时（整组倒计时）"));
+  t2.title = "打开：按官方配速给整组题一个总时限，到点自动交卷。关闭：只累计用时，不限时。";
+  opts.appendChild(t2);
   fields.appendChild(mk("题量", nIn));
   fields.appendChild(opts);
 
@@ -2026,7 +2029,14 @@ function startRun(qs, opt){
   opt = Object.assign({}, opt);
   opt.label = autoLabel(qs, opt.label);
   const blind = opt.blind!=null ? opt.blind : (settings.reveal!=="now");
-  run = { qs, i:0, label:opt.label, timed:opt.timed!==false, finished:false, review:!!opt.review, blind,
+  // 勾了「计时」= 按官方配速给整组一个总时限（R&W 71 秒/题、Math 95 秒/题），到点自动交卷。
+  // 不勾 = 只累计用时，不催。原来 run.timed 只被赋值、没有任何地方读它，等于开关是死的。
+  const PACE_S = {1:71, 2:95};
+  const budgetMs = opt.timed===true
+    ? qs.reduce((t,q)=>t + (PACE_S[q.sec]||71), 0) * 1000
+    : 0;
+  run = { qs, i:0, label:opt.label, timed:opt.timed===true, finished:false, review:!!opt.review, blind,
+          deadline: budgetMs ? Date.now()+budgetMs : null, budgetMs,
           written:[], prevReview:{},
           sid: "s" + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
           state: qs.map(()=>({picked:null, sub:false, ok:null, ms:0, marked:false, struck:[], aid:null, why:null})),
@@ -2190,7 +2200,11 @@ function drawRun(){
        <span class="bandpip"><i style="background:var(--b${q.bd})"></i>band ${q.bd}</span>`;
   bar.appendChild(el("div","spacer"));
   if(run.deadline){
-    const t=el("span","timer"); t.id="timer"; t.textContent="--:--"; bar.appendChild(t);
+    const t=el("span","timer"); t.id="timer"; t.textContent="--:--";
+    t.title = run.mock ? "本模块剩余时间"
+      : run.budgetMs ? `整组限时 ${Math.round(run.budgetMs/60000)} 分钟（官方配速：R&W 71 秒/题、Math 95 秒/题）`
+      : "剩余时间";
+    bar.appendChild(t);
   }else{
     const dt = el("span","dualtimer");
     dt.innerHTML = `<span><span class="lab">本题</span> <b class="q" id="tq">00:00</b></span>
@@ -5331,7 +5345,8 @@ function renderSettings(app){
   });
   ft.appendChild(trow);
   ft.appendChild(el("div","hint",
-    "新账户默认不计时。计时只是按 R&W 每题 ≈71 秒、Math ≈95 秒的配速提示，超了会变红；不影响判分。"));
+    "新账户默认不计时。打开后，每组题会按官方配速（R&W 71 秒/题、Math 95 秒/题）得到一个总时限，"+
+    "答题栏显示倒计时，到点自动交卷。关闭则只累计用时、不限时。"));
   cp.appendChild(ft);
 
   const fr = el("div","field");
