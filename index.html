@@ -2117,6 +2117,7 @@ async function cancelRun(){
 }
 
 function closeRun(){
+  redrawOverlay = null;
   if(run && run._t) clearInterval(run._t);
   run=null;
   $("#view-run").classList.add("hide"); $("#view-run").innerHTML="";
@@ -2255,6 +2256,7 @@ function drawRun(){
 
   // body
   const body = el("div","runbody"+(q.sti?"":" single"));
+  body.dataset.qid = q.id;
   if(q.sti){
     const left = el("div","pane left");
     const li = el("div","pane-inner");
@@ -3951,6 +3953,7 @@ function selBar(getAll, labelFn){
 
 /* ---------- 只看不做：题目 + 答案 + 官方解析直接摊开 ---------- */
 function openBrowse(qs, label){
+  redrawOverlay = ()=>openBrowse(qs, label);
   const root=$("#view-run"); root.innerHTML="";
   $("#view-run").classList.remove("hide");
   document.body.style.overflow="hidden";
@@ -3964,7 +3967,7 @@ function openBrowse(qs, label){
   doThem.onclick=()=>{ root.innerHTML=""; startRun(qs,{label,timed:false}); };
   bar.appendChild(doThem);
   const x = el("button","ghost","关闭");
-  x.onclick=()=>{ root.classList.add("hide"); root.innerHTML=""; document.body.style.overflow=""; render(); };
+  x.onclick=()=>{ root.classList.add("hide"); root.innerHTML=""; document.body.style.overflow=""; redrawOverlay=null; render(); };
   bar.appendChild(x);
   root.appendChild(bar);
 
@@ -3972,6 +3975,7 @@ function openBrowse(qs, label){
   const inner = el("div","pane-inner"); inner.style.maxWidth="720px";
   qs.forEach((q,i)=>{
     const c = el("div","viewcard");
+    c.dataset.qid = q.id;
     const head = el("div","vhead");
     head.innerHTML = `<span class="qn num">${i+1}</span>
       <span class="tag chip">${esc(DOMAINS[q.dom].name)}</span>
@@ -3997,6 +4001,7 @@ function openBrowse(qs, label){
       <div class="qtext">${q.ra}</div></div>`;
     c.appendChild(ans);
     inner.appendChild(c);
+    applyHighlights(c, q.id);          // 每张卡各自应用自己的高亮
   });
   pane.appendChild(inner); body.appendChild(pane); root.appendChild(body);
   applyScale();
@@ -4100,6 +4105,16 @@ function removeHl(qid, text){
 }
 const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/* 高亮增删之后刷新当前正在看的东西：答题界面 / 全屏或只看 / 普通页面 */
+function refreshAfterHl(){
+  const rv = document.querySelector("#view-run");
+  const open = rv && !rv.classList.contains("hide");
+  if(run && !run.finished && open) return drawRun();
+  if(open && typeof redrawOverlay === "function" && redrawOverlay) return redrawOverlay();
+  render();
+}
+let redrawOverlay = null;    // 全屏/只看模式把自己的重绘函数挂在这里
+
 /* 在已渲染好的 DOM 里把保存过的片段包成 <mark> */
 function applyHighlights(root, qid){
   const list = hls[qid];
@@ -4122,8 +4137,7 @@ function applyHighlights(root, qid){
         if(m.index > last) frag.appendChild(document.createTextNode(node.nodeValue.slice(last, m.index)));
         const mk = document.createElement("mark");
         mk.className = "hl"; mk.textContent = m[0]; mk.title = "点击取消高亮";
-        mk.onclick = e=>{ e.stopPropagation(); removeHl(qid, m[0]);
-                          if(run) drawRun(); else render(); };
+        mk.onclick = e=>{ e.stopPropagation(); removeHl(qid, m[0]); refreshAfterHl(); };
         frag.appendChild(mk);
         last = m.index + m[0].length;
       }
@@ -4201,7 +4215,12 @@ function initVocabSelection(){
       const anchor = sel.anchorNode;
       const host = anchor && (anchor.nodeType===3 ? anchor.parentElement : anchor);
       if(!host || !host.closest(".qtext")) return;          // 只在题目正文里生效
-      const q = (run && run.qs[run.i]) || (previewQid && BYID[previewQid]) || null;
+      // 从 DOM 上标的 data-qid 反查所属题目 —— 全屏、只看不做、错题本预览、答题界面通用。
+      // 原来只看 run 和 previewQid，而 openFullscreen / openBrowse 两个视图都不设这两者，
+      // 于是在那里划词拿不到题：高亮按钮报「这里不能高亮」，存进生词本的条目 qid 为 null。
+      const holder = host.closest("[data-qid]");
+      const q = (holder && BYID[holder.dataset.qid])
+             || (run && run.qs[run.i]) || (previewQid && BYID[previewQid]) || null;
       const r = sel.getRangeAt(0).getBoundingClientRect();
       const pop = el("div"); pop.id="vocabpop";
       pop.style.left = Math.max(8, Math.min(window.innerWidth-260, r.left + r.width/2 - 125)) + "px";
@@ -4212,7 +4231,7 @@ function initVocabSelection(){
         addHl(q.id, text);
         killVocabPop();
         if(sel.removeAllRanges) sel.removeAllRanges();
-        if(run && !run.finished) drawRun(); else render();
+        refreshAfterHl();
       };
       pop.appendChild(hb);
       const b = el("button","vpbtn", "＋ 生词本");
@@ -4485,6 +4504,7 @@ function questionPanel(q, a, opts){
   opts = opts||{};
   const reveal = opts.reveal!=null ? opts.reveal : true;
   const wrap = el("div","qpanel");
+  wrap.dataset.qid = q.id;
   const hd = el("div","qphead");
   hd.innerHTML = `
     <span class="tag chip">${esc(DOMAINS[q.dom].name)}</span>
@@ -4558,10 +4578,12 @@ function openFullscreen(qs, label, startIdx, opt){
     dl1.onclick=()=>exportDocx(dl1, [{q, a}], {title:"SAT 单题 · "+q.sk}, "");
     bar.appendChild(dl1);
     const x = el("button","ghost","关闭");
-    x.onclick=()=>{ root.classList.add("hide"); root.innerHTML=""; document.body.style.overflow=""; render(); };
+    x.onclick=()=>{ root.classList.add("hide"); root.innerHTML=""; document.body.style.overflow="";
+                    redrawOverlay=null; render(); };
     bar.appendChild(x);
     root.appendChild(bar);
     const body = el("div","runbody"+(q.sti?"":" single"));
+    body.dataset.qid = q.id;
     if(q.sti){
       const lp = el("div","pane left");
       const li = el("div","pane-inner");
@@ -4582,6 +4604,7 @@ function openFullscreen(qs, label, startIdx, opt){
     pane.appendChild(inner); body.appendChild(pane); root.appendChild(body);
     applySplit(body); applyHighlights(root, q.id); applyScale();
   };
+  redrawOverlay = draw;          // 划词后能就地刷新，不跳回列表
   draw();
 }
 
