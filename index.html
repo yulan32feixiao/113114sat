@@ -4847,16 +4847,37 @@ function renderLog(app){
 let papers = [];        // 存下来的自制试卷
 let importText = "";    // 当前提取出的文本
 
+/* 浏览器的同源策略禁止用跨域 URL 构造 Worker：
+   new Worker("https://cdnjs.cloudflare.com/...") 直接抛 SecurityError。
+   pdf.js 会退回主线程的「假 worker」，但那条退路在 3.x 上常常也失败，
+   于是文档对象建出来了、不报错，但每页 getTextContent() 返回空 —— 表现就是「没读到文字」。
+   标准解法是用 blob 包一层：worker 内部的 importScripts() 是允许跨域的。 */
+const PDF_WORKER_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+let pdfWorkerReady = false;
+function setupPdfWorker(){
+  if(pdfWorkerReady) return;
+  try{
+    const blob = new Blob([`importScripts(${JSON.stringify(PDF_WORKER_URL)});`],
+                          {type:"application/javascript"});
+    pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+  }catch(e){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL;   // 兜底：让 pdf.js 自己去退化
+  }
+  pdfWorkerReady = true;
+}
+
 async function extractPdf(file){
   if(typeof pdfjsLib==="undefined") throw new Error("PDF 解析库没加载成功，检查网络");
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  setupPdfWorker();
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({data:buf}).promise;
   const out = [];
+  const diag = {pages: pdf.numPages, items: [], worker: String(pdfjsLib.GlobalWorkerOptions.workerSrc).slice(0,5)};
+  window.__pdfDiag = diag;
   for(let p=1; p<=pdf.numPages; p++){
     const page = await pdf.getPage(p);
     const tc = await page.getTextContent();
+    diag.items.push((tc.items||[]).length);
     let last=null, line="";
     const lines=[];
     tc.items.forEach(it=>{
@@ -4988,8 +5009,17 @@ function renderImport(app){
       if(name.endsWith(".pdf")) importText = await extractPdf(file);
       else if(name.endsWith(".docx")) importText = await extractDocx(file);
       else throw new Error("只支持 .pdf 和 .docx（老的 .doc 格式不行，先另存为 .docx）");
-      if(!importText.trim()) throw new Error("没读到文字。如果是扫描件/图片 PDF，需要先做 OCR");
-      st.innerHTML = `已提取 <b>${importText.length.toLocaleString()}</b> 字符（${esc(file.name)}）`;
+      if(!importText.trim()){
+        const diag = window.__pdfDiag || {};
+        throw new Error(
+          `没读到文字（共 ${diag.pages||"?"} 页，各页文字块数：${(diag.items||[]).join("/")||"?"}）。`
+          + (diag.pages && (diag.items||[]).every(n=>n===0)
+              ? "每一页都是 0 个文字块 —— 这份 PDF 很可能是扫描件/图片，需要先做 OCR。"
+              : "如果页数为 ? 或解析中断，多半是 PDF 解析 worker 没跑起来，把这整句话发我。"));
+      }
+      const d = window.__pdfDiag;
+      st.innerHTML = `已提取 <b>${importText.length.toLocaleString()}</b> 字符（${esc(file.name)}`
+        + (d && d.pages? `，${d.pages} 页`:"") + `）`;
       showPreview(file.name);
     }catch(e){
       st.innerHTML = `<span style="color:var(--bad)">读取失败：${esc(e.message)}</span>`;
