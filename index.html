@@ -1270,7 +1270,28 @@ function statsFor(filterFn){
   const ms=rows.reduce((s,r)=>s+(r.ms||0),0);
   return {n, ok, acc:pct(ok,n), sec: n? Math.round(ms/n/1000):0};
 }
-const skillStats = (dom,sk)=> statsFor(r=>r.dom===dom && r.sk===sk);
+/* 掌握度必须按「题」算，不能按「次」算。
+   按次算有三个问题会把正确率压得偏低：
+   1) 重做错题让同一道题反复计入，而重做的恰好都是你原本做错的题
+   2) 模考里时间到没作答的题以 ok:false 入库，全被算成错
+   3) 同一道题做对多次也重复计入，掩盖真实掌握程度
+   现在：一道题只算一次，取最近一次作答；没作答的不计入。 */
+function statsByQuestion(filterFn){
+  const latest = new Map();
+  let tries = 0;
+  attempts.forEach(r=>{
+    if(!filterFn(r)) return;
+    tries++;
+    if(r.picked==null || String(r.picked).trim()==="") return;
+    const prev = latest.get(r.qid);
+    if(!prev || (r.ts||0) >= (prev.ts||0)) latest.set(r.qid, r);
+  });
+  const rows = [...latest.values()];
+  const n = rows.length, ok = rows.filter(r=>r.ok).length;
+  const ms = rows.reduce((t,r)=>t+(r.ms||0),0);
+  return {n, ok, acc:pct(ok,n), sec: n? Math.round(ms/n/1000):0, tries, rows};
+}
+const skillStats = (dom,sk)=> statsByQuestion(r=>r.dom===dom && r.sk===sk);
 
 /* ============ views ============ */
 let lastView = null;
@@ -1302,7 +1323,7 @@ const skCfg = {};                  // 每张卡自己的出题参数
 
 function skillBandStats(dom, sk){
   const by = {};
-  attempts.filter(a=>a.dom===dom && a.sk===sk).forEach(a=>{
+  statsByQuestion(a=>a.dom===dom && a.sk===sk).rows.forEach(a=>{
     const b=a.bd||0; (by[b]=by[b]||{n:0,ok:0}); by[b].n++; if(a.ok) by[b].ok++;
   });
   return by;
@@ -1340,7 +1361,7 @@ function skillCard(s){
     </span>
     <span class="sknums">
       <span class="skn"><b class="num">${s.total}</b><i>题库</i></span>
-      <span class="skn"><b class="num">${st.n||"—"}</b><i>已做</i></span>
+      <span class="skn"><b class="num">${st.n||"—"}</b><i>做过题</i></span>
       <span class="skn"><b class="num">${st.sec? st.sec+"s":"—"}</b><i>均时</i></span>
       <span class="acc">
         <span class="accbar"><i class="${cls}" style="width:${st.acc??0}%"></i></span>
@@ -1373,7 +1394,8 @@ function skillCard(s){
       strip.appendChild(d);
     });
     data.innerHTML = `<div class="eyebrow">你在这个考点上的表现</div>
-      <div class="skline">做了 <b>${st.n}</b> 题 · 正确率 <b>${st.acc}%</b> · 平均 <b>${st.sec} 秒/题</b>
+      <div class="skline">做过 <b>${st.n}</b> 道不同的题 · 正确率 <b>${st.acc}%</b>${
+        st.tries>st.n? `（共练 ${st.tries} 次，正确率按每题最近一次算）`:""} · 平均 <b>${st.sec} 秒/题</b>
         ${worst.length? ` · 失分集中在 <b>${esc(worst.slice(0,3).join("、"))}</b>` : ` · 各分数段都还稳`}</div>`;
     data.appendChild(strip);
     const total = BANK.filter(q=>q.dom===s.dom && q.sk===s.sk).length;
@@ -1462,7 +1484,7 @@ function renderSkills(app){
     DOM_ORDER.forEach(dom=>{
       const list = SKILLS.filter(s=>s.dom===dom);
       if(!list.length) return;
-      const ds = statsFor(r=>r.dom===dom);
+      const ds = statsByQuestion(r=>r.dom===dom);
       const h = el("div","skgroup");
       h.innerHTML = `<span class="dn">${esc(DOMAINS[dom].name)}</span>
         <span class="dm">${esc(DOMAINS[dom].cn)} · ${esc(DOMAINS[dom].share)}</span>
@@ -1474,12 +1496,12 @@ function renderSkills(app){
     [["rule","规则型"],["read","理解型"]].forEach(([kind,label])=>{
       const list = SKILLS.filter(s=>(SKILL_INFO[s.sk]||{}).kind===kind);
       if(!list.length) return;
-      const rows = attempts.filter(a=>(SKILL_INFO[a.sk]||{}).kind===kind);
-      const ok = rows.filter(a=>a.ok).length;
+      const kst = statsByQuestion(a=>(SKILL_INFO[a.sk]||{}).kind===kind);
+      const rows = kst.rows, ok = kst.ok;
       const h = el("div","skgroup");
       h.innerHTML = `<span class="dn">${label}</span>
         <span class="dm">${esc(KIND[kind].d)} · ${list.length} 个考点</span>
-        <span class="dm" style="margin-left:auto">${rows.length? pct(ok,rows.length)+"% · "+ok+"/"+rows.length : "还没做过"}</span>`;
+        <span class="dm" style="margin-left:auto">${rows.length? kst.acc+"% · "+ok+"/"+rows.length : "还没做过"}</span>`;
       blk.appendChild(h);
       list.sort((a,b)=>b.total-a.total).forEach(s=>blk.appendChild(skillCard(s)));
     });
@@ -1657,8 +1679,8 @@ function bandMeter(sec, title, curBand){
   const m = el("div","meter");
   const cur = curBand!=null ? BANDS[curBand-1] : null;
   const tgt = BANDS.find(b=> TARGET[sec]>=b.lo && (b.n===7 || TARGET[sec] < BANDS[b.n].lo));
-  const st = statsFor(r=>r.sec===sec && !r.mockOnly && r.dom!=="ZZ");
-  const hi = statsFor(r=>r.sec===sec && r.dom!=="ZZ" && r.bd>= (sec===1?5:6));
+  const st = statsByQuestion(r=>r.sec===sec && r.dom!=="ZZ");
+  const hi = statsByQuestion(r=>r.sec===sec && r.dom!=="ZZ" && r.bd>= (sec===1?5:6));
   m.innerHTML = `<header><h3>${title}</h3>
     <span class="now num">${cur? `band ${cur.n}（${sec===1?cur.rw:cur.m}）→ 目标 ${TARGET[sec]}`
                                : "水平未设置"}</span></header>`;
