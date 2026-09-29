@@ -46,8 +46,13 @@ const step=(n,f)=>{try{const r=f();console.log(`  ok  ${n}${r?" — "+r:""}`);}
       return D.querySelector("#app .pagehead h1").textContent+" / "+h.length+" 字符";});
   step("sr-only 规则在",()=>{if(!/\.sr-only\{[^}]*clip:rect\(0,0,0,0\)/.test(html))throw new Error("缺");
     return "题干 blank 已隐藏";});
-  step("考点卡片 29 张",()=>{ev(`gotoView("home")`);const n=D.querySelectorAll(".skcard").length;
-    if(n!==29)throw new Error(n);return n+" 张";});
+  step("默认「该补的」只列重点",()=>{ev(`gotoView("home")`);
+    const n=D.querySelectorAll(".skcard").length;
+    if(!(n>0&&n<29))throw new Error("默认视图列了 "+n+" 张，应当少于 29 张");
+    return n+" 张（29 个考点里挑出来的）";});
+  step("切到按 domain 是 29 张",()=>{ev(`groupBy="domain";render()`);
+    const n=D.querySelectorAll(".skcard").length;
+    if(n!==29)throw new Error(n);ev(`groupBy="focus";render()`);return n+" 张";});
 
   console.log("\n=== 放弃：延迟判分模式（默认）===");
   await (async()=>{

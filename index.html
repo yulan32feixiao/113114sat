@@ -180,6 +180,20 @@ select,input[type=number]{font:inherit;font-size:13px;padding:6px 9px;border:1px
 .pane.left{border-right:1px solid var(--rule)}
 @media(max-width:900px){.pane.left{border-right:none;border-bottom:1px solid var(--rule)}}
 .pane-inner{max-width:640px;margin:0 auto}
+.qindex{overflow-y:auto;border-right:1px solid var(--rule);background:var(--surface-2);padding:8px 6px}
+.ixhead{padding:2px 6px 7px}
+.ixrow{display:flex;align-items:center;gap:6px;width:100%;padding:5px 7px;border-radius:3px;text-align:left}
+.ixrow:hover{background:var(--surface)}
+.ixrow.on{background:var(--ink);color:var(--surface)}
+.ixrow .ixn{font-size:11px;min-width:17px;opacity:.75}
+.ixdot{width:7px;height:7px;border-radius:99px;flex:none;background:var(--ink-3)}
+.ixdot.ok{background:var(--ok)} .ixdot.no{background:var(--bad)}
+.ixsk{font-size:11px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ixmk{font-size:9.5px;opacity:.8}
+@media(max-width:900px){.qindex{display:none}}
+.vlist{display:flex;flex-direction:column;gap:10px;min-width:0}
+.jumprow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
+.jumprow .jlab{font-size:11px;color:var(--ink-3)}
 
 .qtext{font-family:var(--f-read);font-size:calc(16px * var(--rs));line-height:1.62;color:var(--ink)}
 .qtext p{margin:0 0 .85em}
@@ -649,7 +663,6 @@ textarea.pref{font:inherit;font-size:13.5px;line-height:1.6;width:100%;padding:1
     <button data-view="vocab">生词本</button>
     <button data-view="paper">导入试卷</button>
     <button data-view="settings">设置</button>
-    <button data-view="source">数据来源</button>
   </nav>
   <div class="spacer"></div>
   <span id="syncnote" class="eyebrow"></span>
@@ -1292,6 +1305,15 @@ function statsByQuestion(filterFn){
   return {n, ok, acc:pct(ok,n), sec: n? Math.round(ms/n/1000):0, tries, rows};
 }
 const skillStats = (dom,sk)=> statsByQuestion(r=>r.dom===dom && r.sk===sk);
+/* 一串 attempt -> 去重后的题目数组，最近做的排前面 */
+function dedupQ(list){
+  const seen=new Set(), out=[];
+  list.slice().sort((a,b)=>b.ts-a.ts).forEach(a=>{
+    if(seen.has(a.qid) || !BYID[a.qid]) return;
+    seen.add(a.qid); out.push(BYID[a.qid]);
+  });
+  return out;
+}
 
 /* ============ views ============ */
 let lastView = null;
@@ -1318,7 +1340,7 @@ function daysLeft(){
 
 /* ============ 考点卡片 ============ */
 let skillOpen = null;              // 当前展开的 dom|sk
-let groupBy = "domain";            // domain | kind
+let groupBy = "focus";             // focus | domain | kind —— 默认只列该补的，别一上来 29 张卡
 const skCfg = {};                  // 每张卡自己的出题参数
 
 function skillBandStats(dom, sk){
@@ -1400,6 +1422,36 @@ function skillCard(s){
     data.appendChild(strip);
     const total = BANK.filter(q=>q.dom===s.dom && q.sk===s.sk).length;
     data.appendChild(el("div","hint", `这个考点题库共 ${total} 题，你做过 ${new Set(attempts.filter(a=>a.dom===s.dom&&a.sk===s.sk).map(a=>a.qid)).size} 道。`));
+
+    // 「之前错在哪」不该只是一行字 —— 点开就能把那些题摊出来看
+    const wrongQs = dedupQ(attempts.filter(a=>a.dom===s.dom && a.sk===s.sk && !a.ok));
+    const markQs  = Object.keys(marks).map(id=>BYID[id])
+                      .filter(q=>q && q.dom===s.dom && q.sk===s.sk);
+    if(wrongQs.length || markQs.length){
+      const jump = el("div","jumprow");
+      jump.appendChild(el("span","jlab","把这些题摊开看："));
+      if(wrongQs.length){
+        const b = el("button","chip", `我错过的 ${wrongQs.length} 题`);
+        b.title = "左边索引栏可以在这些题之间跳，右边是题目和官方解析";
+        b.onclick=()=>openFullscreen(wrongQs, s.sk+" · 我错过的", 0, {reveal:true, index:true});
+        jump.appendChild(b);
+      }
+      Object.entries(skillBandStats(s.dom, s.sk))
+        .filter(([b2,v])=>v.n-v.ok>0).sort((a,b2)=>(a[1].ok/a[1].n)-(b2[1].ok/b2[1].n))
+        .slice(0,3).forEach(([b2,v])=>{
+          const qs2 = dedupQ(attempts.filter(a=>a.dom===s.dom && a.sk===s.sk && !a.ok && String(a.bd)===b2));
+          if(!qs2.length) return;
+          const b3 = el("button","chip", `band ${b2} 错的 ${qs2.length} 题`);
+          b3.onclick=()=>openFullscreen(qs2, `${s.sk} · band ${b2} 错题`, 0, {reveal:true, index:true});
+          jump.appendChild(b3);
+        });
+      if(markQs.length){
+        const b4 = el("button","chip", `我标记的 ${markQs.length} 题`);
+        b4.onclick=()=>openFullscreen(markQs, s.sk+" · 我标记的", 0, {reveal:true, index:true});
+        jump.appendChild(b4);
+      }
+      data.appendChild(jump);
+    }
   }else{
     data.innerHTML = `<div class="eyebrow">你在这个考点上的表现</div>
       <div class="skline dim">还没做过这个考点的题。先来 10 道看看底子。</div>`;
@@ -1407,7 +1459,8 @@ function skillCard(s){
   body.appendChild(data);
 
   // 每张卡自己的出题参数
-  if(!skCfg[key]) skCfg[key] = {diffs:[], bands:[], n:10, timed:false, fresh:true};
+  if(!skCfg[key]) skCfg[key] = {diffs:[], bands:[], n:10, timed:false, src:"fresh"};
+  if(skCfg[key].src==null) skCfg[key].src = skCfg[key].fresh===false ? "all" : "fresh";
   const k = skCfg[key];
   const ctrl = el("div","skctrl");
   const chips = (label, items, sel, tog)=>{
@@ -1437,14 +1490,23 @@ function skillCard(s){
   c1.onchange=()=>{ k.timed=c1.checked; };
   t1.appendChild(c1); t1.appendChild(document.createTextNode("计时"));
   t1.title = "按官方配速给这组题一个总时限，到点自动交卷";
-  const t2=el("label","toggle"); const c2=el("input"); c2.type="checkbox"; c2.checked=k.fresh;
-  c2.onchange=()=>{ k.fresh=c2.checked; render(); };
-  t2.appendChild(c2); t2.appendChild(document.createTextNode("跳过做过的"));
-  fo.appendChild(t1); fo.appendChild(t2);
+  fo.appendChild(t1);
   ctrl.appendChild(fo);
+  const fs2 = el("div","field");
+  fs2.appendChild(el("label",null,"题源"));
+  const srow = el("div","chips");
+  SRC_OPTS.forEach(o=>{
+    const b = el("button","chip", o.t);
+    b.title = o.d;
+    b.setAttribute("aria-pressed", k.src===o.v);
+    b.onclick=()=>{ k.src=o.v; render(); };
+    srow.appendChild(b);
+  });
+  fs2.appendChild(srow);
+  ctrl.appendChild(fs2);
   body.appendChild(ctrl);
 
-  const cfg2 = {sec:s.sec, doms:[s.dom], skills:[s.sk], bands:k.bands, diffs:k.diffs, n:k.n, fresh:k.fresh};
+  const cfg2 = {sec:s.sec, doms:[s.dom], skills:[s.sk], bands:k.bands, diffs:k.diffs, n:k.n, src:k.src};
   const avail = poolSize(cfg2);
   const foot = el("footer");
   foot.appendChild(el("span","avail", `符合条件 <b>${avail}</b> 题 · 本次取 ${Math.min(avail,k.n)} 题`));
@@ -1469,11 +1531,11 @@ function renderSkills(app){
   const blk = el("section","block");
   const hd = el("div","blockhead");
   hd.innerHTML = `<h2>考点</h2>
-    <span class="note">${SKILLS.length} 个官方考点 · 点开看这个考点考什么、你做得怎么样，并单独配难度和题量</span>`;
+    <span class="note">${SKILLS.length} 个官方考点 · 点开看考什么、你做得怎么样，单独配难度题量开练</span>`;
   blk.appendChild(hd);
 
-  const sw = el("div","gtabs"); sw.style.maxWidth="320px"; sw.style.marginBottom="14px";
-  [["domain","按官方 domain 分"],["kind","按规则型 / 理解型分"]].forEach(([k,t])=>{
+  const sw = el("div","gtabs"); sw.style.maxWidth="420px"; sw.style.marginBottom="14px";
+  [["focus","该补的"],["domain","按 domain"],["kind","规则型 / 理解型"]].forEach(([k,t])=>{
     const b=el("button",null,t);
     b.setAttribute("aria-current", groupBy===k?"page":"false");
     b.onclick=()=>{ groupBy=k; render(); };
@@ -1481,7 +1543,30 @@ function renderSkills(app){
   });
   blk.appendChild(sw);
 
-  if(groupBy==="domain"){
+  if(groupBy==="focus"){
+    // 该补的：先按错得多排，再列还没摸过底的。不把 29 张卡一次全铺开。
+    const scored = SKILLS.map(x=>({s:x, st:skillStats(x.dom,x.sk)}));
+    const weak = scored.filter(o=>o.st.n>=3 && o.st.acc<75)
+                       .sort((a,b)=>a.st.acc-b.st.acc);
+    const thin = scored.filter(o=>o.st.n>0 && o.st.n<3).sort((a,b)=>b.s.total-a.s.total);
+    const none = scored.filter(o=>!o.st.n).sort((a,b)=>b.s.total-a.s.total);
+    const group=(title,sub,list)=>{
+      if(!list.length) return;
+      const h = el("div","skgroup");
+      h.innerHTML = `<span class="dn">${title}</span><span class="dm">${sub}</span>
+        <span class="dm" style="margin-left:auto">${list.length} 个考点</span>`;
+      blk.appendChild(h);
+      list.forEach(o=>blk.appendChild(skillCard(o.s)));
+    };
+    group("先补这些", "做过 3 题以上、正确率不到 75%，按低到高排", weak);
+    group("样本还太少", "做过但不到 3 题，先各做 10 道摸底", thin.slice(0,6));
+    group("还没摸过底", "一题没做过，按题库题量排，先挑量大的", none.slice(0,6));
+    if(!weak.length && !thin.length && !none.length)
+      blk.appendChild(el("div","empty","目前每个做过的考点正确率都在 75% 以上。换到「按 domain」看全部考点。"));
+    else if(none.length>6 || thin.length>6)
+      blk.appendChild(el("div","hint",
+        `还有 ${Math.max(0,none.length-6)+Math.max(0,thin.length-6)} 个考点没列出来，切到「按 domain」看全部 ${SKILLS.length} 个。`));
+  }else if(groupBy==="domain"){
     DOM_ORDER.forEach(dom=>{
       const list = SKILLS.filter(s=>s.dom===dom);
       if(!list.length) return;
@@ -1514,8 +1599,7 @@ function renderHome(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div>
       <h1>控制台</h1>
-      <p>3,311 道 College Board 官方数字 SAT 题，按 domain / 考点 / 难度 / 官方分数段筛选。
-         作答前不显示答案；答错必须标注原因，这些记录是后续拆解的依据。</p>
+      <p>3,311 道 College Board 官方题。作答前不显示答案。</p>
     </div>
     <div class="countdown"><span class="eyebrow">距 12 月 5 日</span><b class="num">${daysLeft()}</b>
       <span class="eyebrow">天</span></div>`;
@@ -1711,7 +1795,7 @@ function bandMeter(sec, title, curBand){
 }
 
 /* ---------- drill builder ---------- */
-let cfg = {sec:1, doms:[], skills:[], bands:[], diffs:[], n:15, fresh:true, timed:false};
+let cfg = {sec:1, doms:[], skills:[], bands:[], diffs:[], n:15, src:"fresh", timed:false};
 function cfgFromLevel(){
   const lv = userLevel();
   const b = cfg.sec===1 ? lv.rw : lv.math;
@@ -1719,15 +1803,30 @@ function cfgFromLevel(){
   return cfg.bands;
 }
 
+/* 题源：fresh 没做过的 / all 全部 / wrong 我做错过的 / marked 我标记过的 / wm 错过或标记过的。
+   老配置只有 fresh 布尔值，这里向下兼容。 */
+const SRC_OPTS = [
+  {v:"fresh",  t:"没做过的", d:"跳过做过的题，优先新题"},
+  {v:"all",    t:"全部",     d:"做没做过都抽"},
+  {v:"wrong",  t:"我错过的", d:"只抽这个范围里你做错过、且没打「已掌握」的题"},
+  {v:"marked", t:"我标记的", d:"只抽答题时按过「标记」的题"},
+  {v:"wm",     t:"错的+标记",d:"错过的和标记过的合在一起"},
+];
+const srcOf = c => c.src || (c.fresh===false ? "all" : "fresh");
 function pick(c){
+  const src  = srcOf(c);
   const seen = new Set(attempts.map(a=>a.qid));
+  const wrongIds = new Set(attempts.filter(a=>!a.ok).map(a=>a.qid));
   let pool = BANK.filter(q=>
     q.sec===c.sec &&
     (!c.doms.length   || c.doms.includes(q.dom)) &&
     (!c.skills.length || c.skills.includes(q.sk)) &&
     (!c.bands.length  || c.bands.includes(q.bd)) &&
     (!c.diffs.length  || c.diffs.includes(q.df)));
-  if(c.fresh){ const f = pool.filter(q=>!seen.has(q.id)); if(f.length >= Math.min(c.n,5)) pool=f; }
+  if(src==="wrong")       pool = pool.filter(q=> wrongIds.has(q.id) && !mastered[q.id]);
+  else if(src==="marked") pool = pool.filter(q=> marks[q.id]);
+  else if(src==="wm")     pool = pool.filter(q=> marks[q.id] || (wrongIds.has(q.id) && !mastered[q.id]));
+  else if(src==="fresh"){ const f = pool.filter(q=>!seen.has(q.id)); if(f.length >= Math.min(c.n,5)) pool=f; }
   for(let i=pool.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [pool[i],pool[j]]=[pool[j],pool[i]]; }
   return pool.slice(0,c.n);
 }
@@ -1750,7 +1849,7 @@ function builder(){
         if(!levelSet()){ toast("还没有水平数据 —— 做一次完整模考，或去设置里自己指定"); return; }
         cfg.doms=[]; cfg.skills=[]; cfg.diffs=[]; cfgFromLevel();
       }
-      else cfg={...cfg,...p.c,fresh:true};
+      else cfg={...cfg,...p.c,src:"fresh"};
       app_rebuildBuilder(b);
     };
     presets.appendChild(btn);
@@ -1802,9 +1901,6 @@ function app_rebuildBuilder(root){
   nIn.onchange=()=>{ cfg.n=Math.max(1,Math.min(60,+nIn.value||15)); app_rebuildBuilder(root); };
   const opts = el("div","field");
   opts.appendChild(el("label",null,"选项"));
-  const t1=el("label","toggle"); const c1=el("input"); c1.type="checkbox"; c1.checked=cfg.fresh;
-  c1.onchange=()=>{cfg.fresh=c1.checked; app_rebuildBuilder(root);};
-  t1.appendChild(c1); t1.appendChild(document.createTextNode("跳过做过的题")); opts.appendChild(t1);
   const t2=el("label","toggle"); const c2=el("input"); c2.type="checkbox"; c2.checked=cfg.timed;
   c2.onchange=()=>{cfg.timed=c2.checked;};
   t2.appendChild(c2); t2.appendChild(document.createTextNode("计时（整组倒计时）"));
@@ -1812,6 +1908,13 @@ function app_rebuildBuilder(root){
   opts.appendChild(t2);
   fields.appendChild(mk("题量", nIn));
   fields.appendChild(opts);
+
+  if(cfg.src==null) cfg.src = cfg.fresh===false ? "all" : "fresh";
+  const fSrc = mk("题源", chipRow(SRC_OPTS.map(o=>({t:o.t, v:o.v})), [cfg.src], v=>{ cfg.src=v; }));
+  fSrc.querySelectorAll(".chip").forEach((b,i)=>{ b.title = SRC_OPTS[i].d; });
+  fSrc.appendChild(el("div","hint", (SRC_OPTS.find(o=>o.v===cfg.src)||SRC_OPTS[0]).d +
+    "。「我错过的」「我标记的」就是把错题本和标记里符合上面筛选条件的题直接排成一组。"));
+  fields.appendChild(fSrc);
 
   const fRev = el("div","field");
   fRev.appendChild(el("label",null,"答案时机"));
@@ -2267,8 +2370,8 @@ function drawRun(){
   const right = el("div","pane");
   const ri = el("div","pane-inner"); ri.id="qpane";
   right.appendChild(ri); body.appendChild(right);
-  if(calcOpen && q.sec===2) body.appendChild(calcPanel());
-  if(aiOpen && st.sub && !run.mock) body.appendChild(aiPanel(q, st));
+  if(calcOpen && q.sec===2){ body.classList.add("withcalc"); body.appendChild(calcPanel()); }
+  if(aiOpen && st.sub && !run.mock){ body.classList.add("withai"); body.appendChild(aiPanel(q, st)); }
   root.appendChild(body);
   applySplit(body);
 
@@ -2417,22 +2520,67 @@ function unfreeze(){ run.frozen=false; run.t0=Date.now(); }
 let calcOpen = false, calcExpr = "", calcAns = "", calcErr = "";
 
 function calcEval(src){
-  let s = String(src).replace(/×/g,"*").replace(/÷/g,"/").replace(/−/g,"-")
-                     .replace(/π/g,"(PI)").replace(/√/g,"sqrt");
-  if(!/^[0-9+\-*/^().,%\sPIsqrtabcdefghijklmnopqrtuvwxyz]*$/i.test(s)) throw new Error("含不支持的字符");
-  // 只允许白名单里的函数名
-  const fns = ["sqrt","abs","sin","cos","tan","asin","acos","atan","log","ln","exp","PI","E","pow","min","max","round","floor","ceil"];
-  const names = s.match(/[A-Za-z]+/g) || [];
-  for(const nm of names) if(!fns.includes(nm)) throw new Error("不支持 " + nm);
-  s = s.replace(/\^/g, "**");
-  s = s.replace(/\bln\(/g, "Math.log(").replace(/\blog\(/g, "Math.log10(");
-  ["sqrt","abs","sin","cos","tan","asin","acos","atan","exp","pow","min","max","round","floor","ceil"]
-    .forEach(f=>{ s = s.replace(new RegExp("\\b"+f+"\\(","g"), "Math."+f+"("); });
-  s = s.replace(/\bPI\b/g,"Math.PI").replace(/\bE\b/g,"Math.E");
-  s = s.replace(/(\d)\s*%/g, "($1/100)");
+  let s = String(src).replace(/×/g,"*").replace(/÷/g,"/").replace(/[−–—]/g,"-")
+                     .replace(/π/g,"PI").replace(/√/g,"sqrt");
+  if(!/^[0-9+\-*/^().,%\sA-Za-z]*$/.test(s)) throw new Error("含不支持的字符");
+  // 只认白名单里的名字，一次扫描替换完 —— 先 ln→Math.log 再 log→Math.log10 会把自己的结果
+  // 又改一遍（"Math.log(" 里的 "log(" 前面是 "."，\b 照样匹配），ln 因此一直是坏的。
+  const FN = {sqrt:"Math.sqrt", abs:"Math.abs", sin:"Math.sin", cos:"Math.cos", tan:"Math.tan",
+              asin:"Math.asin", acos:"Math.acos", atan:"Math.atan", exp:"Math.exp",
+              pow:"Math.pow", min:"Math.min", max:"Math.max", round:"Math.round",
+              floor:"Math.floor", ceil:"Math.ceil", ln:"Math.log", log:"Math.log10",
+              PI:"Math.PI", E:"Math.E"};
+  const has = n => Object.prototype.hasOwnProperty.call(FN, n);
+  for(const nm of (s.match(/[A-Za-z]+/g) || [])) if(!has(nm)) throw new Error("不支持 " + nm);
+  // 百分号：直接换成 /100。原来的 /(\d)\s*%/ 只吃最后一位数字，"50%" 会变成 "5(0/100)" 然后报错。
+  s = s.replace(/%/g, "/100");
+  // 隐式乘法：2(3+1)、3π、(2)(3) —— 真计算器都认
+  s = s.replace(/(\d|\))\s*(?=[A-Za-z(])/g, "$1*").replace(/(\))\s*(?=\d)/g, "$1*");
+  s = s.replace(/\^/g, "**").replace(/[A-Za-z]+/g, m=>FN[m]);
   const v = Function('"use strict";return (' + s + ')')();
   if(typeof v!=="number" || !isFinite(v)) throw new Error("结果不是有限数");
   return v;
+}
+
+/* 面板是每次按键重绘的，所以这几个动作放在模块级 —— 键盘和按钮走同一套逻辑。 */
+function calcRefresh(){
+  const old = document.querySelector(".calcpanel");
+  if(old) old.replaceWith(calcPanel());
+}
+function calcLive(){
+  if(!calcExpr.trim()){ calcAns=""; calcErr=""; return calcRefresh(); }
+  try{ calcAns = String(+calcEval(calcExpr).toPrecision(12)); calcErr=""; }
+  catch(e){ calcAns=""; }          // 边打边算，没算成就先不报错
+  calcRefresh();
+}
+function calcPut(v){ calcExpr += v; calcErr=""; calcLive(); }
+function calcAct(a){
+  if(a==="ac"){ calcExpr=""; calcAns=""; calcErr=""; calcRefresh(); }
+  else if(a==="del"){ calcExpr=calcExpr.slice(0,-1); calcLive(); }
+  else if(a==="eq"){
+    try{ calcAns=String(+calcEval(calcExpr).toPrecision(12)); calcErr=""; }
+    catch(e){ calcErr=e.message; calcAns=""; }
+    calcRefresh();
+  }
+}
+/* 计算器开着时键盘归计算器 —— 否则按 1234 会去选 ABCD，打不了数。
+   返回 true 表示这个键被计算器吃掉了。 */
+function calcKeydown(e){
+  if(e.ctrlKey || e.metaKey || e.altKey) return false;
+  const k = e.key;
+  if(/^[0-9]$/.test(k))        { calcPut(k); return true; }
+  if(k==="." || k===",")       { calcPut("."); return true; }
+  if(k==="+")                  { calcPut("+"); return true; }
+  if(k==="-")                  { calcPut("−"); return true; }
+  if(k==="*" || k==="x" || k==="X"){ calcPut("×"); return true; }
+  if(k==="/")                  { calcPut("÷"); return true; }
+  if(k==="^")                  { calcPut("^"); return true; }
+  if(k==="(" || k===")" || k==="%"){ calcPut(k); return true; }
+  if(k==="Backspace")          { calcAct("del"); return true; }
+  if(k==="Enter" || k==="=")   { calcAct("eq"); return true; }
+  if(k==="Delete" || k==="c" || k==="C"){ calcAct("ac"); return true; }
+  if(k==="Escape")             { calcOpen=false; drawRun(); return true; }
+  return false;
 }
 
 function calcPanel(){
@@ -2454,45 +2602,31 @@ function calcPanel(){
     <div class="cans ${calcErr?"err":""}">${calcErr? esc(calcErr) : (calcAns===""?"&nbsp;":esc(calcAns))}</div>`;
   p.appendChild(scr);
 
-  const put = v=>{ calcExpr += v; calcErr=""; live(); };
-  const live = ()=>{
-    if(!calcExpr.trim()){ calcAns=""; calcErr=""; return refresh(); }
-    try{ calcAns = String(+calcEval(calcExpr).toPrecision(12)); calcErr=""; }
-    catch(e){ calcAns=""; }     // 边打边算，没算成就先不报错
-    refresh();
-  };
-  const refresh = ()=>{ const old=document.querySelector(".calcpanel");
-    if(old) old.replaceWith(calcPanel()); };
-
+  // 键位照实体计算器 / Windows 计算器排：右边一列自上而下 ÷ × − +，÷ 在 789 那一行的上面。
+  // 之前 ÷ 占了 789 这一行、× 占 456，手感上正好错位一行，按惯性就按错。
   const rows = [
-    [{t:"sin",v:"sin("},{t:"cos",v:"cos("},{t:"tan",v:"tan("},{t:"π",v:"π"},{t:"AC",act:"ac",cls:"fn"}],
-    [{t:"√",v:"√("},{t:"x²",v:"^2"},{t:"xʸ",v:"^"},{t:"(",v:"("},{t:")",v:")"}],
-    [{t:"7",v:"7"},{t:"8",v:"8"},{t:"9",v:"9"},{t:"÷",v:"/",cls:"op"},{t:"⌫",act:"del",cls:"fn"}],
-    [{t:"4",v:"4"},{t:"5",v:"5"},{t:"6",v:"6"},{t:"×",v:"*",cls:"op"},{t:"%",v:"%",cls:"op"}],
-    [{t:"1",v:"1"},{t:"2",v:"2"},{t:"3",v:"3"},{t:"−",v:"-",cls:"op"},{t:"log",v:"log("}],
-    [{t:"0",v:"0"},{t:".",v:"."},{t:"E",v:"E"},{t:"+",v:"+",cls:"op"},{t:"=",act:"eq",cls:"eq"}],
+    [{t:"sin",v:"sin("},{t:"cos",v:"cos("},{t:"tan",v:"tan("},{t:"ln",v:"ln("},{t:"log",v:"log("}],
+    [{t:"AC",act:"ac",cls:"fn"},{t:"⌫",act:"del",cls:"fn"},{t:"(",v:"("},{t:")",v:")"},{t:"÷",v:"÷",cls:"op"}],
+    [{t:"7",v:"7"},{t:"8",v:"8"},{t:"9",v:"9"},{t:"x²",v:"^2"},{t:"×",v:"×",cls:"op"}],
+    [{t:"4",v:"4"},{t:"5",v:"5"},{t:"6",v:"6"},{t:"√",v:"√("},{t:"−",v:"−",cls:"op"}],
+    [{t:"1",v:"1"},{t:"2",v:"2"},{t:"3",v:"3"},{t:"xʸ",v:"^"},{t:"+",v:"+",cls:"op"}],
+    [{t:"0",v:"0"},{t:".",v:"."},{t:"%",v:"%"},{t:"π",v:"π"},{t:"=",act:"eq",cls:"eq"}],
   ];
   const pad = el("div","calcpad");
   rows.forEach(r=>{
     const rr = el("div","calcrow");
     r.forEach(k=>{
       const b = el("button","calckey"+(k.cls?" "+k.cls:""), k.t);
-      b.onclick=()=>{
-        if(k.act==="ac"){ calcExpr=""; calcAns=""; calcErr=""; refresh(); }
-        else if(k.act==="del"){ calcExpr=calcExpr.slice(0,-1); live(); }
-        else if(k.act==="eq"){
-          try{ calcAns=String(+calcEval(calcExpr).toPrecision(12)); calcErr=""; }
-          catch(e){ calcErr=e.message; calcAns=""; }
-          refresh();
-        } else put(k.v);
-      };
+      b.onclick=()=> k.act? calcAct(k.act) : calcPut(k.v);
       rr.appendChild(b);
     });
     pad.appendChild(rr);
   });
   p.appendChild(pad);
   p.appendChild(el("div","calcnote",
-    "数字 SAT 的 Math 全程允许用计算器，没有「本题禁用」的题。真考内置 Desmos，点右上角可以打开官方版练手。"));
+    "键盘可以直接打：数字、<b>+ − * /</b>、括号、^、Enter 算、Backspace 退格、C 清空、Esc 收起。"+
+    "计算器开着的时候键盘归它，不会误选 ABCD。<br>"+
+    "数字 SAT 的 Math 全程允许用计算器。真考内置 Desmos，点右上角可以打开官方版练手。"));
   return p;
 }
 
@@ -3309,23 +3443,27 @@ function drawMockReport(){
     allRows.push({q, s, ok:s.ok, bd:q.bd, dom:q.dom, sk:q.sk, sec:q.sec, df:q.df});
   }));
 
-  logSession({sid:plan.sid, label:"模考 · "+(plan.kind==="full"?"完整":MOCK[plan.kind].name), mode:"mock",
-              startTs:plan.startTs, endTs:Date.now(), activeMs,
-              n:allRows.length, ok:allRows.filter(r=>r.ok).length,
-              marked: allRows.filter(r=>marks[r.q.id]).length,
-              qids: allRows.map(r=>r.q.id)});
+  // 只记真的做了的题：没作答的不写作答记录、不进错题集（和平时练习一条规则）。
+  // 一题都没做的整场模考干脆不留记录。
+  const doneRows = allRows.filter(r=> r.s.picked!=null && String(r.s.picked).trim()!=="");
+  if(doneRows.length)
+    logSession({sid:plan.sid, label:"模考 · "+(plan.kind==="full"?"完整":MOCK[plan.kind].name), mode:"mock",
+                startTs:plan.startTs, endTs:Date.now(), activeMs,
+                n:doneRows.length, ok:doneRows.filter(r=>r.ok).length,
+                marked: allRows.filter(r=>marks[r.q.id]).length,
+                qids: allRows.map(r=>r.q.id)});
 
   // 记录每一题 + 错题进错题集
   (async ()=>{
-    for(const r of allRows){
+    for(const r of doneRows){
       await recordAttempt({
         aid: r.q.id+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6),
         qid:r.q.id, eid:r.q.eid, sec:r.q.sec, dom:r.q.dom, sk:r.q.sk, df:r.q.df, bd:r.q.bd, ty:r.q.ty,
-        picked: r.s.picked==null? "" : r.s.picked, correct: r.q.an.join("|"),
-        ok: r.ok, ms: r.s.ms||0, why: r.s.picked==null? "time" : null,
+        picked: r.s.picked, correct: r.q.an.join("|"),
+        ok: r.ok, ms: r.s.ms||0, why: null,
         ts: Date.now(), session:"模考", sid:plan.sid, mock:true
       });
-      if(!r.ok) collect(r.q.id, r.s.picked==null? "time" : null);
+      if(!r.ok) collect(r.q.id, null);
     }
     await flushReview();
   })();
@@ -4153,9 +4291,20 @@ function initSplit(){
   const v = +lsGet("b7_split", 50);
   if(v>=20 && v<=80) splitRatio = v;
 }
+const IDX_W = 170, CALC_W = 290, AI_W = 380;
 function applySplit(body){
-  if(!body || body.classList.contains("single")) return;
-  body.style.gridTemplateColumns = `${splitRatio}fr 6px ${100-splitRatio}fr`;
+  if(!body) return;
+  // 窄屏交给 CSS 的单列布局 —— 行内样式会盖过 media query，别在这里写死
+  if(window.innerWidth<=900){ body.style.gridTemplateColumns=""; return; }
+  const idx  = body.classList.contains("withidx")  ? IDX_W+"px " : "";
+  const calc = (body.classList.contains("withcalc") ? " "+CALC_W+"px" : "")
+             + (body.classList.contains("withai")   ? " "+AI_W+"px"   : "");
+  if(body.classList.contains("single")){
+    if(!idx && !calc){ body.style.gridTemplateColumns = ""; return; }   // 交给 CSS
+    body.style.gridTemplateColumns = idx + "minmax(0,780px)" + calc;
+    return;
+  }
+  body.style.gridTemplateColumns = `${idx}${splitRatio}fr 6px ${100-splitRatio}fr${calc}`;
 }
 function makeSplitter(body){
   const h = el("div","splitter");
@@ -4164,8 +4313,11 @@ function makeSplitter(body){
   const move = e=>{
     if(!dragging) return;
     const r = body.getBoundingClientRect();
-    const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left;
-    splitRatio = Math.max(20, Math.min(80, Math.round(x / r.width * 100)));
+    const off = (body.classList.contains("withidx")? IDX_W:0);
+    const wid = r.width - off - (body.classList.contains("withcalc")? CALC_W:0)
+                              - (body.classList.contains("withai")? AI_W:0);
+    const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left - off;
+    splitRatio = Math.max(20, Math.min(80, Math.round(x / Math.max(1,wid) * 100)));
     applySplit(body);
   };
   const up = ()=>{
@@ -4251,37 +4403,75 @@ function initVocabSelection(){
   document.addEventListener("scroll", killVocabPop, true);
 }
 
+let vFolder = {by:"skill", val:""};     // 生词本左边菜单，默认按题型分
+
 function renderVocab(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div><h1>生词本</h1>
-    <p>练习或看题时划选一个词或短语就能存进来。每条都带它出现的那句原话；点「看原题」可以回到完整语境。</p></div>`;
+    <p>做题时划选不认识的词就存进来，连同它出现的那句原话。左边按题型／作业／月份分组。</p></div>`;
   app.appendChild(head);
   if(!vocab.length){
     app.appendChild(el("div","empty","还没有生词。做题时用鼠标划选不认识的词，会弹出「存进生词本」。"));
     return;
   }
+
+  const keyOf = v =>
+    vFolder.by==="skill"   ? (v.sk || "（未标考点）")
+  : vFolder.by==="session" ? (sessionLabelAt(v.ts) || NO_SESSION)
+                           : monthKey(v.ts);
+  const counts = {}, tsMax = {};
+  if(vFolder.by!=="all") vocab.forEach(v=>{
+    const k=keyOf(v); counts[k]=(counts[k]||0)+1;
+    if((v.ts||0)>(tsMax[k]||0)) tsMax[k]=v.ts||0;
+  });
+  const keys = Object.keys(counts).sort(
+    vFolder.by==="skill" ? (a2,b2)=> counts[b2]-counts[a2]
+                         : (a2,b2)=> (tsMax[b2]||0)-(tsMax[a2]||0));
+  if(vFolder.by!=="all" && (!vFolder.val || !counts[vFolder.val])) vFolder.val = keys[0] || "";
+  const list = vocab.filter(v=> vFolder.by==="all" || keyOf(v)===vFolder.val)
+                    .slice().sort((a2,b2)=>(b2.ts||0)-(a2.ts||0));
+
   const bar = el("div","selbar");
-  bar.appendChild(el("span","cnt", `${vocab.length} 条`));
+  bar.appendChild(el("span","cnt", `${list.length} / ${vocab.length} 条`));
   bar.appendChild(el("div","spacer"));
-  const dl = el("button","ghost","导出 TXT");
+  const dl = el("button","ghost","导出这组 TXT");
   dl.onclick=()=>{
-    const txt = vocab.slice().reverse().map(v=>
+    const txt = list.map(v=>
       `${v.w}\n  语境：${v.ctx}\n  来自：${v.sk||"—"}  ${new Date(v.ts).toLocaleDateString("zh-CN")}\n`).join("\n");
     saveFile(`生词本 ${todayKey()}.txt`, new Blob([txt],{type:"text/plain;charset=utf-8"}));
   };
   bar.appendChild(dl);
-  const clr = el("button","ghost","清空");
+  if(list.length>1){
+    const quiz = el("button","ghost","看原题（全部）");
+    quiz.title = "把这组生词出现过的题一次摊开，左边索引栏可以跳";
+    quiz.onclick=()=>{
+      const qs=[], seen=new Set();
+      list.forEach(v=>{ if(v.qid && BYID[v.qid] && !seen.has(v.qid)){ seen.add(v.qid); qs.push(BYID[v.qid]); } });
+      if(!qs.length) return toast("这组生词没有能回溯的原题");
+      openFullscreen(qs, "生词出处 · "+(vFolder.by==="all"?"全部":vFolder.val), 0, {reveal:true});
+    };
+    bar.appendChild(quiz);
+  }
+  const clr = el("button","ghost","清空全部");
   clr.onclick=()=>{ if(confirm(`删除全部 ${vocab.length} 条生词？`)){ vocab=[]; saveVocab(); render(); } };
   bar.appendChild(clr);
   app.appendChild(bar);
 
-  vocab.slice().reverse().forEach(v=>{
+  const split = el("div","logsplit");
+  const leftCol = el("div","logleft");
+  leftCol.appendChild(folderBox(vFolder, counts, keys, ()=>render()));
+  split.appendChild(leftCol);
+
+  const right = el("div","vlist");
+  if(!list.length) right.appendChild(el("div","empty","这个分组下没有生词。"));
+  list.forEach(v=>{
     const c = el("div","vcard");
     const hi = esc(v.ctx).replace(new RegExp(esc(v.w).replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"),
       m=>`<mark>${m}</mark>`);
     c.innerHTML = `<div class="vw">${esc(v.w)}</div>
       <div class="vctx">${hi}</div>
-      <div class="vmeta">${esc(v.sk||"—")} · ${new Date(v.ts).toLocaleDateString("zh-CN")}</div>`;
+      <div class="vmeta">${esc(v.sk||"—")} · ${new Date(v.ts).toLocaleDateString("zh-CN")}${
+        sessionLabelAt(v.ts)? " · "+esc(sessionLabelAt(v.ts)) : ""}</div>`;
     const row = el("div","btnrow"); row.style.justifyContent="flex-start"; row.style.marginTop="9px";
     if(v.qid && BYID[v.qid]){
       const go = el("button","drillbtn","看原题");
@@ -4292,8 +4482,10 @@ function renderVocab(app){
     del.onclick=()=>{ vocab=vocab.filter(x=>!(x.w===v.w&&x.ts===v.ts)); saveVocab(); render(); };
     row.appendChild(del);
     c.appendChild(row);
-    app.appendChild(c);
+    right.appendChild(c);
   });
+  split.appendChild(right);
+  app.appendChild(split);
 }
 
 /* ============ 浏览器前进/后退 ============ */
@@ -4321,6 +4513,43 @@ function initHistory(){
 
 /* ============ 练习记录 ============
    一场练习 = 一条 session + 若干条 attempt。旧数据没有 sid，用时间区间兜底。 */
+/* 某个时间点落在哪一场练习里 —— 生词本按「作业」分组要用 */
+function sessionLabelAt(ts){
+  if(!ts) return "";
+  const pad = 60000;
+  const hit = sessions.filter(x=>ts>=x.startTs-pad && ts<=x.endTs+pad).slice(-1)[0];
+  return hit ? (hit.label||"练习") : "";
+}
+const NO_SESSION = "（不属于某次练习）";
+const monthKey = ts => ts ? new Date(ts).toISOString().slice(0,7).replace("-"," 年 ")+" 月" : "（无日期）";
+
+/* 左边那一列的分组菜单。by: skill | session | month | all */
+const FOLDER_TABS = [["skill","按题型"],["session","按作业"],["month","按月份"],["all","全部"]];
+function folderBox(state, counts, keys, onPick){
+  const fold = el("div","folders");
+  const fTabs = el("div","gtabs"); fTabs.style.marginBottom="0";
+  FOLDER_TABS.forEach(([k,t])=>{
+    const b=el("button",null,t);
+    b.setAttribute("aria-current", state.by===k?"page":"false");
+    b.onclick=()=>{ state.by=k; state.val=""; onPick(); };
+    fTabs.appendChild(b);
+  });
+  fold.appendChild(fTabs);
+  if(state.by!=="all"){
+    if(keys.length){
+      const fl = el("div","folderlist");
+      keys.forEach(k=>{
+        const b = el("button","folderitem"+(state.val===k?" on":""));
+        b.innerHTML = `<span class="fname">${esc(k)}</span><span class="fcount num">${counts[k]}</span>`;
+        b.onclick=()=>{ state.val=k; onPick(); };
+        fl.appendChild(b);
+      });
+      fold.appendChild(fl);
+    }else fold.appendChild(el("div","hint","这个分法下还没有东西。"));
+  }
+  return fold;
+}
+
 function sessionAttempts(sess){
   if(sess.sid){
     const byId = attempts.filter(a=>a.sid===sess.sid);
@@ -4382,7 +4611,7 @@ let openSession = null;
 function renderRecords(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div><h1>练习记录</h1>
-    <p>每一场练过什么、哪些对哪些错哪些标记了，点开一目了然。可以直接重做错题或整场重来。</p></div>`;
+    <p>每一场练过什么、哪些对哪些错。点开可以重做错题或整场重来。</p></div>`;
   app.appendChild(head);
 
   if(!sessions.length){
@@ -4490,7 +4719,7 @@ function renderRecords(app){
 
 /* ============ 错题本 / 标记 ============ */
 let logFilter = {sec:0, dom:"", onlyDue:false, hideMastered:true};
-let folder = {by:"all", val:""};      // all | skill | session
+let folder = {by:"skill", val:""};    // skill | session | month | all —— 默认按题型分
 function toggleMastered(qid){
   if(mastered[qid]) delete mastered[qid];
   else { mastered[qid] = Date.now(); delete reviewQ[qid]; flushReview(); }
@@ -4551,6 +4780,7 @@ function questionPanel(q, a, opts){
 
 function openFullscreen(qs, label, startIdx, opt){
   let fsReveal = !opt || opt.reveal!==false;
+  let fsIdx = qs.length>1 && (!opt || opt.index!==false);   // 左边的小索引栏
   const root=$("#view-run"); root.innerHTML="";
   root.classList.remove("hide");
   document.body.style.overflow="hidden";
@@ -4567,6 +4797,13 @@ function openFullscreen(qs, label, startIdx, opt){
     const rvb = el("button","ghost", fsReveal? "隐藏答案":"显示答案");
     rvb.onclick=()=>{ fsReveal=!fsReveal; draw(); };
     bar.appendChild(rvb);
+    if(qs.length>1){
+      const ib = el("button","ghost","索引");
+      ib.setAttribute("aria-pressed", fsIdx);
+      ib.title = "左边列出这一组的全部题目，点哪道跳哪道";
+      ib.onclick=()=>{ fsIdx=!fsIdx; draw(); };
+      bar.appendChild(ib);
+    }
     const mk = el("button","ghost", marks[q.id]?"已标记":"标记");
     mk.setAttribute("aria-pressed", !!marks[q.id]);
     mk.onclick=()=>{ toggleMark(q.id); draw(); };
@@ -4582,8 +4819,27 @@ function openFullscreen(qs, label, startIdx, opt){
                     redrawOverlay=null; render(); };
     bar.appendChild(x);
     root.appendChild(bar);
-    const body = el("div","runbody"+(q.sti?"":" single"));
+    const body = el("div","runbody"+(q.sti?"":" single")+(fsIdx?" withidx":""));
     body.dataset.qid = q.id;
+    if(fsIdx){
+      // 小索引栏：这一组有哪些题、当时对还是错，点一下就跳过去
+      const ix = el("div","qindex");
+      ix.dataset.keepscroll = "qindex";
+      ix.appendChild(el("div","eyebrow ixhead", `${qs.length} 题`));
+      qs.forEach((qq,k)=>{
+        const aa = attempts.filter(x=>x.qid===qq.id).slice(-1)[0] || null;
+        const stt = !aa || aa.picked==null || String(aa.picked).trim()==="" ? "skip" : (aa.ok?"ok":"no");
+        const b = el("button","ixrow"+(k===i?" on":""));
+        b.innerHTML = `<span class="ixn num">${k+1}</span>
+          <span class="ixdot ${stt}"></span>
+          <span class="ixsk">${esc(qq.sk)}</span>
+          ${marks[qq.id]? '<span class="ixmk">标</span>':''}`;
+        b.title = `${k+1}. ${qq.sk} · ${DIFF[qq.df]||qq.df}${qq.bd?" · band "+qq.bd:""}`;
+        b.onclick=()=>{ i=k; draw(); };
+        ix.appendChild(b);
+      });
+      body.appendChild(ix);
+    }
     if(q.sti){
       const lp = el("div","pane left");
       const li = el("div","pane-inner");
@@ -4603,7 +4859,15 @@ function openFullscreen(qs, label, startIdx, opt){
     inner.appendChild(nav);
     pane.appendChild(inner); body.appendChild(pane); root.appendChild(body);
     applySplit(body); applyHighlights(root, q.id); applyScale();
+    const ixEl = root.querySelector(".qindex");
+    if(ixEl){
+      if(fsScroll!=null) ixEl.scrollTop = fsScroll;
+      ixEl.addEventListener("scroll", ()=>{ fsScroll = ixEl.scrollTop; });
+      const on = ixEl.querySelector(".ixrow.on");
+      if(on && fsScroll==null && on.scrollIntoView) on.scrollIntoView({block:"nearest"});
+    }
   };
+  let fsScroll = null;
   redrawOverlay = draw;          // 划词后能就地刷新，不跳回列表
   draw();
 }
@@ -4611,8 +4875,7 @@ function openFullscreen(qs, label, startIdx, opt){
 function renderLog(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div><h1>${listTab==="wrong"?"错题本":"我标记的题"}</h1>
-    <p>左边点一道题，右边看题目和官方解析。要一次处理多道，点「批量」。
-       想看「某一场练习错了哪些」请去<b>练习记录</b>，那边按场次列得更清楚。</p></div>`;
+    <p>左边选题，右边看题目和官方解析。要一次处理多道，点「批量」。</p></div>`;
   app.appendChild(head);
 
   const tabs = el("div","gtabs"); tabs.style.maxWidth="300px"; tabs.style.marginBottom="14px";
@@ -4621,7 +4884,7 @@ function renderLog(app){
     const b=el("button",null,t);
     b.setAttribute("aria-current", listTab===k?"page":"false");
     b.onclick=()=>{ listTab=k; picked.clear(); previewQid=null;
-                    folder={by:"all",val:""};            // 分组是按标签页算的，切页要重置
+                    folder={by:"skill",val:""};          // 分组是按标签页算的，切页要重置
                     logFilter.dom=""; logFilter.sec=0;   // 否则上一页的筛选会把这页全滤空
                     render(); };
     tabs.appendChild(b);
@@ -4667,14 +4930,17 @@ function renderLog(app){
   // 文件夹键先算出来，并给 folder.val 一个默认值 —— 否则刚切到「按题型」时
   // 过滤结果为空，会在渲染文件夹列表之前就提前返回，等于永远选不到
   const folderKeyOf = x =>
-    folder.by==="skill" ? x.q.sk
-                        : (x.a && x.a.ts ? new Date(x.a.ts).toISOString().slice(0,7).replace("-"," 年 ")+" 月"
-                                         : "（无日期）");
-  const folderCounts = {};
-  if(folder.by!=="all") items.forEach(x=>{ const k=folderKeyOf(x); folderCounts[k]=(folderCounts[k]||0)+1; });
-  const folderKeys = Object.keys(folderCounts).sort(folder.by==="month"
-    ? (a,b)=> b.localeCompare(a)
-    : (a,b)=> folderCounts[b]-folderCounts[a]);
+    folder.by==="skill"   ? x.q.sk
+  : folder.by==="session" ? ((x.a && x.a.session) || sessionLabelAt(x.a && x.a.ts) || NO_SESSION)
+                          : monthKey(x.a && x.a.ts);
+  const folderCounts = {}, folderTs = {};
+  if(folder.by!=="all") items.forEach(x=>{
+    const k=folderKeyOf(x); folderCounts[k]=(folderCounts[k]||0)+1;
+    const t=(x.a&&x.a.ts)||0; if(t>(folderTs[k]||0)) folderTs[k]=t;
+  });
+  const folderKeys = Object.keys(folderCounts).sort(
+    folder.by==="skill" ? (a,b)=> folderCounts[b]-folderCounts[a]
+                        : (a,b)=> (folderTs[b]||0)-(folderTs[a]||0));
   if(folder.by!=="all" && (!folder.val || !folderCounts[folder.val])) folder.val = folderKeys[0] || "";
 
   const inFolder = x => folder.by==="all" ? true : folderKeyOf(x)===folder.val;
@@ -4732,31 +4998,8 @@ function renderLog(app){
   const split = el("div","logsplit");
   const leftCol = el("div","logleft");
 
-  // —— 文件夹：全部 / 按题型 / 按作业 ——
-  const fold = el("div","folders");
-  const fTabs = el("div","gtabs"); fTabs.style.marginBottom="8px";
-  [["all","全部"],["skill","按题型"],["month","按月份"]].forEach(([k,t])=>{
-    const b=el("button",null,t);
-    b.setAttribute("aria-current", folder.by===k?"page":"false");
-    b.onclick=()=>{ folder={by:k,val:""}; picked.clear(); previewQid=null; render(); };
-    fTabs.appendChild(b);
-  });
-  fold.appendChild(fTabs);
-  if(folder.by!=="all"){
-    if(folderKeys.length){
-      const fl = el("div","folderlist");
-      folderKeys.forEach(k=>{
-        const b = el("button","folderitem"+(folder.val===k?" on":""));
-        b.innerHTML = `<span class="fname">${esc(k)}</span><span class="fcount num">${folderCounts[k]}</span>`;
-        b.onclick=()=>{ folder.val=k; picked.clear(); previewQid=null; render(); };
-        fl.appendChild(b);
-      });
-      fold.appendChild(fl);
-    }else{
-      fold.appendChild(el("div","hint","还没有可以分组的记录。"));
-    }
-  }
-  leftCol.appendChild(fold);
+  leftCol.appendChild(folderBox(folder, folderCounts, folderKeys,
+    ()=>{ picked.clear(); previewQid=null; render(); }));
 
   const left = el("div","loglist");
   left.dataset.keepscroll = "loglist";
@@ -4811,7 +5054,7 @@ function renderLog(app){
     doIt.onclick=()=>startRun([cur.q],{label:"单题 · "+cur.q.sk, timed:false, review:!!reviewQ[cur.qid]});
     const same = el("button","drillbtn","同考点 10 题");
     same.onclick=()=>{
-      const qs=pick({sec:cur.q.sec,doms:[cur.q.dom],skills:[cur.q.sk],bands:[],diffs:[],n:10,fresh:true});
+      const qs=pick({sec:cur.q.sec,doms:[cur.q.dom],skills:[cur.q.sk],bands:[],diffs:[],n:10,src:"fresh"});
       if(!qs.length) return toast("这个考点没有更多题了");
       startRun(qs,{label:cur.q.sk+" 同考点", timed:false});
     };
@@ -4973,8 +5216,8 @@ function paperMinutes(qs){
 function renderImport(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div><h1>导入试卷</h1>
-    <p>上传一份 PDF 或 Word 题目文件，让 DeepSeek 整理成可作答的试卷，按 SAT 标准配速计时。
-       模型只整理文件里真实存在的题，不会替你出题。</p></div>`;
+    <p>上传 PDF / Word / txt / Markdown，或直接粘贴文字，让 DeepSeek 整理成可作答的试卷。
+       模型只整理文件里真实存在的题，不会替你出题。<b>这些题只进你自己的试卷和练习记录，不进官方题库、不计入考点统计。</b></p></div>`;
   app.appendChild(head);
 
   if(!hasKey()){
@@ -4986,8 +5229,9 @@ function renderImport(app){
 
   const card = el("div","builder");
   const drop = el("div","drop");
-  drop.innerHTML = `<b>把 PDF 或 .docx 拖到这里</b><span>也可以点击选择文件</span>`;
-  const fi = el("input"); fi.type="file"; fi.accept=".pdf,.docx,application/pdf"; fi.className="hide";
+  drop.innerHTML = `<b>把 PDF / .docx / .txt / .md 拖到这里</b><span>也可以点击选择文件</span>`;
+  const fi = el("input"); fi.type="file";
+  fi.accept=".pdf,.docx,.txt,.md,.markdown,.csv,application/pdf,text/plain"; fi.className="hide";
   drop.onclick=()=>fi.click();
   drop.ondragover=e=>{ e.preventDefault(); drop.classList.add("over"); };
   drop.ondragleave=()=>drop.classList.remove("over");
@@ -4995,6 +5239,24 @@ function renderImport(app){
                    if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); };
   fi.onchange=()=>{ if(fi.files[0]) handleFile(fi.files[0]); };
   card.appendChild(drop); card.appendChild(fi);
+
+  // 直接粘贴：截图 OCR 出来的文字、网页上复制的题、聊天记录里的题，都能走这条路
+  const pasteWrap = el("div","field"); pasteWrap.style.marginTop="12px";
+  pasteWrap.appendChild(el("label",null,"或者直接把题目文字粘进来"));
+  const pta = el("textarea"); pta.className="pref"; pta.rows=4;
+  pta.placeholder = "任何格式的题目文字都行。扫描件 / 图片请先用别的工具 OCR 成文字再贴进来。";
+  pasteWrap.appendChild(pta);
+  const pbtn = el("button","drillbtn","用这段文字");
+  pbtn.style.marginTop="8px";
+  pbtn.onclick=()=>{
+    const t = pta.value.trim();
+    if(t.length<20) return toast("文字太短，认不出题目");
+    importText = t;
+    $("#impstatus").innerHTML = `已读入粘贴的 <b>${t.length.toLocaleString()}</b> 字符`;
+    showPreview("粘贴的文字");
+  };
+  pasteWrap.appendChild(pbtn);
+  card.appendChild(pasteWrap);
 
   const status = el("div","impstatus"); status.id="impstatus"; card.appendChild(status);
   const preview = el("div"); preview.id="imppreview"; card.appendChild(preview);
@@ -5008,7 +5270,10 @@ function renderImport(app){
       const name = file.name.toLowerCase();
       if(name.endsWith(".pdf")) importText = await extractPdf(file);
       else if(name.endsWith(".docx")) importText = await extractDocx(file);
-      else throw new Error("只支持 .pdf 和 .docx（老的 .doc 格式不行，先另存为 .docx）");
+      else if(/\.(txt|md|markdown|csv|json)$/.test(name) || (file.type||"").startsWith("text/"))
+        importText = await file.text();
+      else throw new Error("支持 .pdf / .docx / .txt / .md / .csv。老的 .doc 先另存为 .docx；"
+                         + "别的格式可以把文字复制到下面的粘贴框里。");
       if(!importText.trim()){
         const diag = window.__pdfDiag || {};
         throw new Error(
@@ -5320,11 +5585,8 @@ function renderProviders(app){
 function renderSettings(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div><h1>设置</h1>
-    <p>API key 只存在你自己这台浏览器里，不会上传，也不在网站代码里。
-       每个用这个网站的人都要填自己的 key。</p></div>`;
+    <p>API key 只存在你这台浏览器里，不上传、不在代码里。</p></div>`;
   app.appendChild(head);
-
-  renderDiag(app);
 
   /* --- 账户与水平 --- */
   const b0 = el("section","block");
@@ -5472,12 +5734,27 @@ function renderSettings(app){
   c3.appendChild(el("div","hint",
     "导出的文件不含 API key。浏览器清缓存、换浏览器、无痕窗口都会丢记录，建议每周导出一次。"));
   b3.appendChild(c3); app.appendChild(b3);
+
+  /* --- 数据来源 / 数据体检 --- */
+  const bSrc = el("section","block");
+  bSrc.innerHTML = `<div class="blockhead"><h2>来源与本机数据</h2>
+    <span class="note">题目出处、换算依据、已知局限，以及这台浏览器里实际存了什么</span></div>`;
+  const srow = el("div","btnrow"); srow.style.justifyContent="flex-start";
+  const sgo = el("button","drillbtn","数据来源与已知局限 →");
+  sgo.onclick=()=>gotoView("source");
+  srow.appendChild(sgo);
+  bSrc.appendChild(srow);
+  app.appendChild(bSrc);
+  renderDiag(app);
 }
 
 /* ============ source view ============ */
 function renderSource(app){
   const head = el("div","pagehead");
   head.innerHTML = `<div><h1>数据来源</h1><p>每一项数据的出处，以及已知的局限。</p></div>`;
+  const back = el("button","ghost","← 回设置");
+  back.onclick=()=>gotoView("settings");
+  head.appendChild(back);
   app.appendChild(head);
   const p = el("div","prose");
   const byDom = DOM_ORDER.map(d=>{
@@ -5603,6 +5880,13 @@ document.addEventListener("keydown", e=>{
   }
   if(!run || run.finished || $("#view-run").classList.contains("hide")) return;
   const st = run.state[run.i], q = run.qs[run.i];
+  // 计算器开着就把键盘交给它 —— 不然按 1234 是在选 ABCD，根本打不了数
+  if(calcOpen && q.sec===2 && calcKeydown(e)){ e.preventDefault(); return; }
+  // 正在输入框里打字（填空题、AI 提问框）时不抢键
+  const ae = document.activeElement;
+  if(ae && (ae.tagName==="INPUT" || ae.tagName==="TEXTAREA" || ae.isContentEditable)){
+    if(e.key!=="Escape") return;
+  }
   if(e.key==="Escape") return endRun();
   if(q.ty!=="spr" && !st.sub && /^[1-4abcdABCD]$/.test(e.key)){
     const idx = "1234".includes(e.key) ? +e.key-1 : "abcd".indexOf(e.key.toLowerCase());
