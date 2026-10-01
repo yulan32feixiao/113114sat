@@ -22,8 +22,7 @@ const step=(n,f)=>{try{const r=f();console.log(`  ok  ${n}${r?" — "+r:""}`);}
 
 (async()=>{
   await new Promise(r=>setTimeout(r,3000));
-  await ev(`(async()=>{await registerUser("t2","pw1234");CURRENT="t2";
-    lsSet("b7_session","t2");document.querySelector("#gate").remove();enterApp("")})()`);
+  ev(`createProfile("t2");CURRENT="t2";lsSet("b7_session","t2");enterApp("")`);
   await new Promise(r=>setTimeout(r,300));
 
   // 造三道 R&W 的题：一道做错、一道做对、一道标记

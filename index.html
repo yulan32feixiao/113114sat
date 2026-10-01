@@ -327,8 +327,31 @@ select,input[type=number]{font:inherit;font-size:13px;padding:6px 9px;border:1px
 .recoveritem.on{border-color:var(--accent);background:var(--accent-soft)}
 .recoveritem .rname{font-size:13.5px;font-weight:600}
 .recoveritem .rstat{font-size:10.5px;color:var(--ink-3)}
-.who{display:flex;align-items:center;gap:7px}
+.who{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:var(--r);
+  border:1px solid transparent;color:var(--ink)}
+.who:hover{background:var(--surface-2);border-color:var(--rule)}
 .who b{font-size:12.5px;font-weight:600}
+.who .chev{font-size:9px;color:var(--ink-3)}
+.profilepop{position:fixed;z-index:400;width:290px;background:var(--surface);
+  border:1px solid var(--rule);border-radius:var(--r);padding:9px;
+  box-shadow:0 10px 30px rgba(0,0,0,.14)}
+.pphead{padding:2px 4px 8px}
+.pprow{display:flex;align-items:center;gap:3px;border-radius:4px}
+.pprow:hover{background:var(--surface-2)}
+.pprow.on{background:var(--accent-soft)}
+.ppgo{flex:1;display:flex;flex-direction:column;gap:2px;text-align:left;padding:7px 8px;min-width:0}
+.ppname{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ppcur{font-style:normal;font-size:9.5px;font-weight:500;color:var(--accent-ink);
+  background:var(--accent-soft);border-radius:99px;padding:1px 6px;margin-left:4px}
+.ppstat{font-size:10px;color:var(--ink-3)}
+.ppmini{font-size:10.5px;color:var(--ink-3);padding:4px 6px;border-radius:3px;flex:none}
+.ppmini:hover{background:var(--surface);color:var(--ink)}
+.ppmini.danger:hover{color:var(--bad)}
+.ppadd{width:100%;text-align:left;padding:8px;margin-top:5px;font-size:12px;font-weight:600;
+  border:1px dashed var(--rule-2);border-radius:4px;color:var(--ink-2)}
+.ppadd:hover{border-color:var(--ink-3);color:var(--ink)}
+.ppfoot{font-size:10px;line-height:1.6;color:var(--ink-3);margin-top:9px;padding-top:8px;
+  border-top:1px solid var(--rule)}
 .dualtimer{display:flex;align-items:center;gap:10px;font-family:var(--f-num);font-size:12.5px}
 .dualtimer .lab{font-size:9.5px;color:var(--ink-3);letter-spacing:.06em;text-transform:uppercase}
 .dualtimer b{font-size:14px;font-weight:700;letter-spacing:-.01em}
@@ -666,7 +689,7 @@ textarea.pref{font:inherit;font-size:13.5px;line-height:1.6;width:100%;padding:1
   </nav>
   <div class="spacer"></div>
   <span id="syncnote" class="eyebrow"></span>
-  <span class="who"><b id="whoami"></b><button class="ghost" id="logoutbtn">退出</button></span>
+  <button class="who" id="whobtn" title="换一个人用 / 新建档案"><b id="whoami"></b><span class="chev">▾</span></button>
   <span id="topsize"></span>
   <button class="ghost" id="themebtn">主题</button>
 </div>
@@ -855,9 +878,15 @@ async function boot(){
   initHistory();
   $("#boot").remove();
 
-  const sess = lsGet("b7_session","");
-  if(sess && users()[sess]){ CURRENT = sess; enterApp(""); }
-  else showAuth();
+  // 打开就进。只有「这台浏览器上有好几个档案、又没记住上次是谁」时才问一句。
+  const who = resolveProfile();
+  if(who){
+    CURRENT = who;
+    lsSet("b7_session", who); lsSet("b7_last", who);
+    let note = "";
+    if(hasLegacy()){ const n = migrateLegacy(); if(n) note = `已把之前 ${n} 项记录放进「${who}」`; }
+    enterApp(note);
+  }else showPicker();
 }
 
 function enterApp(note){
@@ -881,70 +910,83 @@ function buildSkillIndex(){
     DOM_ORDER.indexOf(a.dom)-DOM_ORDER.indexOf(b.dom) || b.total-a.total);
 }
 
-/* ============ 账户 ============
-   没有后端，所以这是「本机多用户档案」，不是真正的登录系统：
-   密码只用来在这台设备上隔开不同人的记录，能打开浏览器开发者工具的人就能看到数据。
-   不要用你在别处用过的密码。账户之间的进度完全独立，也不会跨设备同步。 */
+/* ============ 用户档案 ============
+   没有后端，所以这是「本机多用户档案」：几个人共用一台电脑时各自的记录互不相干。
+   **没有密码、没有登录。** 密码在纯前端里本来也挡不住任何人（能开开发者工具就能看到数据），
+   只是每次打开都要输一遍，徒增麻烦 —— 所以直接取消，打开就进，顶栏可以随时换人。
+   档案之间的进度完全独立，也不会跨设备同步。 */
 let CURRENT = null;
 const K = name => "b7:" + (CURRENT||"_guest") + ":" + name;
+const DEFAULT_PROFILE = "我";
 
-async function hashPw(pw, salt){
-  const buf = new TextEncoder().encode(salt + "|" + pw);
-  const d = await crypto.subtle.digest("SHA-256", buf);
-  return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,"0")).join("");
-}
 const users     = ()=> lsGet("b7_users", {});
 const setUsers  = u => lsSet("b7_users", u);
+const profileNames = ()=> Object.keys(users());
 
-async function registerUser(name, pw){
-  name = name.trim();
-  if(name.length < 2) throw new Error("用户名至少 2 个字符");
-  if(pw.length < 4)   throw new Error("密码至少 4 位");
+function createProfile(name){
+  name = String(name||"").trim();
+  if(name.length < 1) throw new Error("名字不能是空的");
+  if(name.length > 16) throw new Error("名字最多 16 个字");
   const u = users();
-  if(u[name]) throw new Error("这个用户名已经有人用了");
-  const salt = [...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,"0")).join("");
-  u[name] = {salt, hash: await hashPw(pw, salt), created: Date.now(),
-             level:{rw:null, math:null, source:"unset"}};
+  if(u[name]) throw new Error("已经有一个叫「"+name+"」的档案了");
+  u[name] = {created: Date.now(), level:{rw:null, math:null, source:"unset"}};
   setUsers(u);
   return name;
 }
-async function loginUser(name, pw){
-  const u = users()[name.trim()];
-  if(!u) throw new Error("没有这个用户名");
-  if(await hashPw(pw, u.salt) !== u.hash) throw new Error("密码不对");
-  return name.trim();
+function renameProfile(oldName, newName){
+  newName = String(newName||"").trim();
+  const u = users();
+  if(!u[oldName]) throw new Error("没有这个档案");
+  if(newName===oldName) return oldName;
+  if(!newName.length) throw new Error("名字不能是空的");
+  if(u[newName]) throw new Error("已经有一个叫「"+newName+"」的档案了");
+  // 记录是按 "b7:<名字>:<键>" 存的，改名要把键一起搬过去
+  const pre = "b7:"+oldName+":";
+  const moves = [];
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if(k && k.startsWith(pre)) moves.push(k);
+  }
+  moves.forEach(k=>{
+    const v = localStorage.getItem(k);
+    localStorage.setItem("b7:"+newName+":"+k.slice(pre.length), v);
+    localStorage.removeItem(k);
+  });
+  u[newName] = u[oldName]; delete u[oldName];
+  setUsers(u);
+  if(CURRENT===oldName){ CURRENT = newName; lsSet("b7_session", newName); lsSet("b7_last", newName); }
+  return newName;
 }
-/* 本机重置：这套密码只是界面上的分隔，数据本身是明文存的，
-   所以重置密码不会丢任何记录。真正的账号安全要靠后端，见 README 的「账户」一节。 */
-async function resetPwLocal(name, newPw){
-  const all = users(), u = all[name];
-  if(!u) throw new Error("这台浏览器上没有这个账户");
-  if(newPw.length < 4) throw new Error("新密码至少 4 位");
-  const salt = [...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,"0")).join("");
-  u.salt = salt; u.hash = await hashPw(newPw, salt);
-  setUsers(all);
+function deleteProfile(name){
+  const u = users();
+  if(!u[name]) return;
+  const pre = "b7:"+name+":";
+  const kill = [];
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if(k && k.startsWith(pre)) kill.push(k);
+  }
+  kill.forEach(k=>localStorage.removeItem(k));
+  delete u[name]; setUsers(u);
 }
-/* 这台浏览器上能找到的账户，以及各自存了多少东西 */
+function switchProfile(name){
+  if(!users()[name]) return;
+  lsSet("b7_session", name); lsSet("b7_last", name);
+  location.reload();        // 整页重来最干净：所有内存里的数组都要换一套
+}
+
+/* 这台浏览器上的档案，以及各自存了多少东西 */
 function accountSummary(){
-  const out = [];
-  Object.keys(users()).forEach(name=>{
+  const all = users();
+  return Object.keys(all).map(name=>{
     const g = k=>{ try{ const v=localStorage.getItem("b7:"+name+":"+k); if(v==null) return 0;
       const p=JSON.parse(v); return Array.isArray(p)?p.length:(p&&typeof p==="object"?Object.keys(p).length:0);
     }catch(e){ return 0; } };
-    out.push({name, attempts:g("attempts"), sessions:g("sessions"),
-              review:g("review"), marks:g("marks"), created:(users()[name]||{}).created});
-  });
-  return out.sort((a,b)=>b.attempts-a.attempts);
+    return {name, attempts:g("attempts"), sessions:g("sessions"),
+            review:g("review"), marks:g("marks"), created:(all[name]||{}).created};
+  }).sort((a,b)=>b.attempts-a.attempts);
 }
 
-async function changePw(name, oldPw, newPw){
-  const all = users(), u = all[name];
-  if(!u) throw new Error("账户不存在");
-  if(await hashPw(oldPw, u.salt) !== u.hash) throw new Error("原密码不对");
-  if(newPw.length < 4) throw new Error("新密码至少 4 位");
-  u.hash = await hashPw(newPw, u.salt);
-  setUsers(all);
-}
 function userLevel(){
   const u = users()[CURRENT];
   const lv = (u && u.level) || {};
@@ -958,7 +1000,7 @@ function setUserLevel(level){
   setUsers(all);
 }
 
-/* 把注册账户之前的老数据搬进第一个账户 */
+/* 把档案系统之前的老数据搬进第一个档案 */
 const LEGACY = ["b7_attempts","b7_review","b7_notes","b7_settings","b7_sessions","b7_papers","b7_marks"];
 function hasLegacy(){ return LEGACY.some(k=>localStorage.getItem(k)!=null); }
 function migrateLegacy(){
@@ -973,171 +1015,117 @@ function migrateLegacy(){
   return moved;
 }
 
-/* ---------- 登录 / 注册界面 ---------- */
-function showAuth(){
-  document.querySelectorAll("#gate").forEach(e=>e.remove());   // 重复调用时替换而不是叠加
+/* 打开网站时决定用哪个档案：
+   记住的那个 → 上次用的 → 只有一个就用它 → 一个都没有就建一个。
+   返回 null 表示「有好几个档案、但不知道这次是谁」，交给选人面板。 */
+function resolveProfile(){
+  const all = users(), names = Object.keys(all);
+  const sess = lsGet("b7_session","");
+  if(sess && all[sess]) return sess;
+  const last = lsGet("b7_last","");
+  if(last && all[last]) return last;
+  if(names.length === 1) return names[0];
+  if(names.length === 0) return createProfile(DEFAULT_PROFILE);
+  return null;
+}
+
+/* ---------- 选人：只在「有好几个档案又不知道是谁」时出现一次，点一下就进 ---------- */
+function showPicker(){
+  document.querySelectorAll("#gate").forEach(e=>e.remove());
   $("#topbar").classList.add("hide");
   $("#app").classList.add("hide");
   const gate = el("div"); gate.id="gate";
-  const known = Object.keys(users());
-  const legacy = hasLegacy();
-  let mode = known.length ? "login" : "register";
-
-  function draw(){
-    gate.innerHTML = "";
-    const card = el("div","gatecard");
-    card.innerHTML = `
-      <div class="brand" style="justify-content:center;margin-bottom:6px"><span class="mk"></span>Band Seven</div>
-      <p class="gsub">3,311 道 College Board 官方数字 SAT 题</p>`;
-
-    // 先把这个浏览器里到底有什么摆出来，省掉「是不是打开错浏览器了」的猜测
-    const sum = accountSummary();
-    const totalRec = sum.reduce((a,x)=>a+x.attempts, 0);
-    let legacyN = 0;
-    try{ const v=localStorage.getItem("b7_attempts"); if(v) legacyN = (JSON.parse(v)||[]).length; }catch(e){}
-    const found = el("div","gfound");
-    if(sum.length){
-      found.classList.add("has");
-      found.innerHTML = `<b>这个浏览器里有 ${sum.length} 个账户、共 ${totalRec} 条作答记录</b>`
-        + `<div class="glist">` + sum.map(a=>
-            `<span>${esc(a.name)} — ${a.attempts} 条作答 · ${a.sessions} 场 · ${a.review} 道错题</span>`).join("")
-        + `</div>`
-        + (totalRec===0 ? `<div class="gtip">账户在、但没有作答记录。如果你确定练过题，可能是在另一个浏览器或另一台设备上。</div>` : "")
-        + `<div class="gtip">忘了密码就点「找回」，重设密码不会丢记录。</div>`;
-    }else if(legacyN){
-      found.classList.add("has");
-      found.innerHTML = `<b>检测到 ${legacyN} 条还没归属账户的作答记录</b>
-        <div class="gtip">这是账户系统上线前存下的。<b>点「注册」建一个账户，这些记录会自动转到你名下。</b></div>`;
-    }else{
-      found.innerHTML = `<b>这个浏览器里没有任何账户和练习记录</b>
-        <div class="gtip">如果你之前练过题，那些记录在你当时用的那个<b>浏览器</b>里
-          （换了浏览器、换了设备、或开过无痕窗口都会这样）——换回去打开这个网址即可。<br>
-          也可以先在这里注册一个新账户，之后用「设置 → 练习数据 → 导入」把导出过的进度 JSON 导进来。</div>`;
-    }
-    card.appendChild(found);
-
-    const tabs = el("div","gtabs");
-    const tabList = known.length ? [["login","登录"],["register","注册"],["recover","找回"]]
-                                 : [["login","登录"],["register","注册"]];
-    tabList.forEach(([m,t])=>{
-      const b = el("button",null,t);
-      b.setAttribute("aria-current", mode===m ? "page":"false");
-      b.onclick=()=>{ mode=m; draw(); };
-      tabs.appendChild(b);
-    });
-    card.appendChild(tabs);
-
-    if(legacy && mode==="register"){
-      card.appendChild(el("div","gnote",
-        "检测到这台浏览器上有还没归属账户的练习记录。注册第一个账户后，这些记录会自动转到你名下。"));
-    }
-
-    if(mode==="recover"){
-      card.appendChild(el("div","gnote",
-        "这台浏览器上找到下面这些账户。<b>现在这套密码只是界面上的分隔，数据本身是明文存的，"+
-        "所以重设密码不会丢任何记录。</b>选一个账户，设个新密码就能进去。"));
-      const list = accountSummary();
-      const wrap = el("div","recoverlist");
-      let chosen = list[0] ? list[0].name : "";
-      const drawList = ()=>{
-        wrap.innerHTML = "";
-        list.forEach(a=>{
-          const b = el("button","recoveritem"+(chosen===a.name?" on":""));
-          b.innerHTML = `<span class="rname">${esc(a.name)}</span>
-            <span class="rstat num">${a.attempts} 条作答 · ${a.sessions} 场 · ${a.review} 道错题 · ${a.marks} 个标记</span>`;
-          b.onclick=()=>{ chosen=a.name; drawList(); };
-          wrap.appendChild(b);
-        });
-      };
-      drawList();
-      card.appendChild(wrap);
-      const f2 = el("div","gform");
-      const np = el("input"); np.type="password"; np.placeholder="给它设一个新密码（至少 4 位）";
-      np.autocomplete="new-password";
-      f2.appendChild(np);
-      card.appendChild(f2);
-      const err2 = el("div","gerr"); card.appendChild(err2);
-      const go2 = el("button","primary","重设密码并进入"); go2.style.width="100%";
-      const doRecover = async ()=>{
-        err2.textContent=""; go2.disabled=true;
-        try{
-          if(!chosen) throw new Error("先选一个账户");
-          await resetPwLocal(chosen, np.value);
-          CURRENT = chosen; lsSet("b7_last", chosen); lsSet("b7_session", chosen);
-          gate.remove(); enterApp(`已进入「${chosen}」`);
-        }catch(e){ err2.textContent = e.message; go2.disabled=false; }
-      };
-      go2.onclick = doRecover;
-      np.onkeydown = e=>{ if(e.key==="Enter") doRecover(); };
-      card.appendChild(go2);
-      card.appendChild(el("div","gfoot",
-        "如果这里一个账户都没有，说明记录不在这个浏览器里 —— 换回你平时用的那个浏览器再打开，"+
-        "或者用之前导出的进度 JSON 在设置里导入。"));
-      gate.appendChild(card);
-      setTimeout(()=>np.focus(), 30);
-      return;
-    }
-
-    const f = el("div","gform");
-    const nameIn = el("input"); nameIn.type="text"; nameIn.placeholder="用户名";
-    nameIn.autocomplete="username"; nameIn.value = lsGet("b7_last","") || "";
-    const pwIn = el("input"); pwIn.type="password"; pwIn.placeholder="密码";
-    pwIn.autocomplete = mode==="login" ? "current-password" : "new-password";
-    f.appendChild(nameIn); f.appendChild(pwIn);
-    if(mode==="login" && known.length){
-      const sel = el("select");
-      sel.innerHTML = `<option value="">— 选择已有账户 —</option>` +
-        known.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
-      sel.onchange=()=>{ if(sel.value){ nameIn.value=sel.value; pwIn.focus(); } };
-      f.insertBefore(sel, nameIn);
-    }
-    card.appendChild(f);
-
-    const err = el("div","gerr");
-    card.appendChild(err);
-
-    const go = el("button","primary", mode==="login" ? "登录" : "注册并开始");
-    go.style.width="100%";
-    const submit = async ()=>{
-      err.textContent = "";
-      go.disabled = true;
-      try{
-        const name = mode==="login"
-          ? await loginUser(nameIn.value, pwIn.value)
-          : await registerUser(nameIn.value, pwIn.value);
-        CURRENT = name;
-        lsSet("b7_last", name);
-        lsSet("b7_session", name);
-        let note = "";
-        if(mode==="register" && legacy){
-          const n = migrateLegacy();
-          if(n) note = `已把之前 ${n} 项记录转到「${name}」名下`;
-        }
-        gate.remove();
-        enterApp(note);
-      }catch(e){
-        err.textContent = e.message + (mode==="login" && known.length ? "　—　忘了密码？点上面「找回」" : "");
-        go.disabled = false;
-      }
-    };
-    go.onclick = submit;
-    pwIn.onkeydown = e=>{ if(e.key==="Enter") submit(); };
-    nameIn.onkeydown = e=>{ if(e.key==="Enter") pwIn.focus(); };
-    card.appendChild(go);
-
-    card.appendChild(el("div","gfoot",
-      "没有服务器，账户只存在这台浏览器里 —— 密码用来分开不同人的记录，<b>不是真正的加密保护</b>。" +
-      "换设备不会自动同步，要用「设置 → 导出进度」搬。别用你在别处用过的密码。"));
-    gate.appendChild(card);
-    setTimeout(()=>{ (nameIn.value? pwIn : nameIn).focus(); }, 30);
-  }
-  draw();
+  const card = el("div","gatecard");
+  card.innerHTML = `
+    <div class="brand" style="justify-content:center;margin-bottom:6px"><span class="mk"></span>Band Seven</div>
+    <p class="gsub">这台浏览器上有几个人的记录，这次是谁在练？</p>`;
+  const wrap = el("div","recoverlist");
+  accountSummary().forEach(a=>{
+    const b2 = el("button","recoveritem");
+    b2.innerHTML = `<span class="rname">${esc(a.name)}</span>
+      <span class="rstat num">${a.attempts} 条作答 · ${a.sessions} 场 · ${a.review} 道错题</span>`;
+    b2.onclick=()=>{ lsSet("b7_session", a.name); lsSet("b7_last", a.name);
+                     CURRENT = a.name; gate.remove(); enterApp(""); };
+    wrap.appendChild(b2);
+  });
+  card.appendChild(wrap);
+  const add = el("button","ghost","＋ 新建一个档案"); add.style.width="100%";
+  add.onclick=()=>{
+    const v = prompt("新档案的名字（随便起，只是用来区分记录）：", "");
+    if(v==null) return;
+    try{ const n=createProfile(v); lsSet("b7_session",n); lsSet("b7_last",n);
+         CURRENT=n; gate.remove(); enterApp("已建好档案「"+n+"」"); }
+    catch(e){ toast(e.message); }
+  };
+  card.appendChild(add);
+  card.appendChild(el("div","gfoot",
+    "档案<b>没有密码</b>，只是把几个人的记录分开存。选错了随时在顶栏点名字换回来。"));
+  gate.appendChild(card);
   document.body.appendChild(gate);
 }
 
-function logout(){
-  localStorage.removeItem("b7_session");
-  location.reload();
+/* ---------- 换人：顶栏点名字弹出来的小面板 ---------- */
+let profilePop = null;
+function killProfilePop(){ if(profilePop){ profilePop.remove(); profilePop=null; } }
+function openProfilePop(anchor){
+  if(profilePop) return killProfilePop();
+  const pop = el("div","profilepop");
+  profilePop = pop;
+  const draw = ()=>{
+    pop.innerHTML = "";
+    pop.appendChild(el("div","eyebrow pphead","这台浏览器上的档案"));
+    accountSummary().forEach(a=>{
+      const row = el("div","pprow"+(a.name===CURRENT?" on":""));
+      const go = el("button","ppgo");
+      go.innerHTML = `<span class="ppname">${esc(a.name)}${a.name===CURRENT?' <i class="ppcur">当前</i>':''}</span>
+        <span class="ppstat num">${a.attempts} 条作答 · ${a.sessions} 场 · ${a.review} 道错题</span>`;
+      go.onclick=()=>{ if(a.name!==CURRENT) switchProfile(a.name); else killProfilePop(); };
+      row.appendChild(go);
+      const ren = el("button","ppmini","改名");
+      ren.onclick=()=>{
+        const v = prompt("把「"+a.name+"」改成：", a.name);
+        if(v==null) return;
+        try{ renameProfile(a.name, v); draw();
+             if($("#whoami")) $("#whoami").textContent = CURRENT; render(); }
+        catch(e){ toast(e.message); }
+      };
+      row.appendChild(ren);
+      const del = el("button","ppmini danger","删除");
+      del.onclick=()=>{
+        if(profileNames().length<2) return toast("只剩这一个档案了，删不得");
+        if(!confirm(`删除档案「${a.name}」？它的 ${a.attempts} 条作答、${a.sessions} 场练习、${a.review} 道错题会一起删掉，无法撤销。`)) return;
+        const wasCurrent = a.name===CURRENT;
+        deleteProfile(a.name);
+        if(wasCurrent){ lsSet("b7_session", profileNames()[0]); return location.reload(); }
+        draw();
+      };
+      row.appendChild(del);
+      pop.appendChild(row);
+    });
+    const add = el("button","ppadd","＋ 新建一个档案");
+    add.onclick=()=>{
+      const v = prompt("新档案的名字（随便起，只是用来区分记录）：", "");
+      if(v==null) return;
+      try{ switchProfile(createProfile(v)); }
+      catch(e){ toast(e.message); }
+    };
+    pop.appendChild(add);
+    pop.appendChild(el("div","ppfoot",
+      "档案只是把记录分开存，<b>没有密码，也不是账号</b> —— 同一台浏览器上谁都能切。"+
+      "换设备要用「设置 → 导出进度」搬。"));
+  };
+  draw();
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect();
+  pop.style.top   = (r.bottom + 6) + "px";
+  pop.style.right = Math.max(8, window.innerWidth - r.right) + "px";
+  setTimeout(()=>{
+    document.addEventListener("mousedown", function off(e){
+      if(profilePop && !profilePop.contains(e.target) && !anchor.contains(e.target)){
+        killProfilePop(); document.removeEventListener("mousedown", off);
+      }
+    });
+  }, 0);
 }
 
 /* ============ 本地存储 ============
@@ -5590,7 +5578,7 @@ function renderSettings(app){
 
   /* --- 账户与水平 --- */
   const b0 = el("section","block");
-  b0.innerHTML = `<div class="blockhead"><h2>账户与水平</h2>
+  b0.innerHTML = `<div class="blockhead"><h2>档案与水平</h2>
     <span class="note">水平决定出题默认落在哪个分数段</span></div>`;
   const c0 = el("div","builder");
   const lv = userLevel();
@@ -5620,25 +5608,15 @@ function renderSettings(app){
       : `当前来源：<b>${lv.source==="mock"?"最近一次模考评分":"你手动设置"}</b>。
          做完模考会自动覆盖，也可以随时在这里改回来或清空。出题器的「按我的水平」预设以此为准，
          但每次出题仍可单独调分数段。`));
-  const pwRow = el("div","fields"); pwRow.style.marginTop="16px";
-  const mkpw=(ph,type)=>{ const i=el("input"); i.type="password"; i.placeholder=ph; return i; };
-  const oldp=mkpw("原密码"), newp=mkpw("新密码（至少 4 位）");
-  [["原密码",oldp],["新密码",newp]].forEach(([lab,inp])=>{
-    const f=el("div","field"); f.appendChild(el("label",null,lab)); f.appendChild(inp); pwRow.appendChild(f);
-  });
-  c0.appendChild(pwRow);
+  c0.appendChild(el("div","hint", "<b>没有密码，也没有登录。</b>档案只是把同一台浏览器上几个人的记录分开存 —— "+
+    "密码在纯前端里挡不住任何人（能开开发者工具就能看到数据），只会让每次打开都多一步，所以取消了。"));
   const f0=el("footer");
-  const st0=el("span","avail",`当前账户：<b>${esc(CURRENT)}</b>`);
-  f0.appendChild(st0);
-  const chg=el("button","ghost","修改密码");
-  chg.onclick=async()=>{
-    try{ await changePw(CURRENT, oldp.value, newp.value); oldp.value=newp.value=""; toast("密码已修改"); }
-    catch(e){ st0.innerHTML=`<span style="color:var(--bad)">${esc(e.message)}</span>`; }
-  };
-  f0.appendChild(chg);
-  const out=el("button","ghost","退出登录");
-  out.onclick=()=>{ if(confirm("退出当前账户？记录留在本机。")) logout(); };
-  f0.appendChild(out);
+  const n0 = profileNames().length;
+  f0.appendChild(el("span","avail",
+    `当前档案：<b>${esc(CURRENT)}</b>${n0>1? `　·　这台浏览器上共 ${n0} 个`:""}`));
+  const sw=el("button","ghost","换人 / 新建档案");
+  sw.onclick=e=>{ e.stopPropagation(); openProfilePop(sw); };
+  f0.appendChild(sw);
   c0.appendChild(f0);
   b0.appendChild(c0); app.appendChild(b0);
 
@@ -5865,7 +5843,7 @@ function renderSource(app){
 function gotoView(v){ if(v!==view) pushView(v); view=v; picked.clear(); render(); }
 document.querySelectorAll("nav.tabs button").forEach(b=>
   b.onclick = ()=>gotoView(b.dataset.view));
-$("#logoutbtn").onclick = ()=>{ if(confirm("退出当前账户？记录留在本机，下次登录还在。")) logout(); };
+$("#whobtn").onclick = e=>{ e.stopPropagation(); openProfilePop($("#whobtn")); };
 $("#themebtn").onclick = ()=>{
   const cur = document.documentElement.getAttribute("data-theme");
   const next = cur==="dark" ? "light" : cur==="light" ? "dark"

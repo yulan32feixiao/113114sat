@@ -23,8 +23,7 @@ const step=(n,f)=>{try{const r=f();console.log(`  ok  ${n}${r?" — "+r:""}`);}
                    catch(e){console.log(`  FAIL ${n}: ${e.message}`);errs.push(n);}};
 (async()=>{
   await new Promise(r=>setTimeout(r,3000));
-  await ev(`(async()=>{await registerUser("tester","pw1234");CURRENT="tester";lsSet("b7_session","tester");
-    document.querySelector("#gate").remove();enterApp("")})()`);
+  ev(`createProfile("tester");CURRENT="tester";lsSet("b7_session","tester");enterApp("")`);
   await new Promise(r=>setTimeout(r,300));
 
   step("不勾计时：不设 deadline，显示累计双计时器",()=>{

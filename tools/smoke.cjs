@@ -26,7 +26,7 @@ const dom=new JSDOM(`<!doctype html><html><head><meta charset="utf-8"></head><bo
     w.URL.createObjectURL=()=>"blob:";w.URL.revokeObjectURL=()=>{};
     w.addEventListener("error",e=>errs.push("onerror: "+(e.message||e.error)));
   }});
-const w=dom.window,D=w.document,ev=s=>w.eval(s);
+const w=dom.window,D=w.document,ev=s=>w.eval(s),CUR=()=>w.eval("CURRENT");
 const step=(n,f)=>{try{const r=f();console.log(`  ok  ${n}${r?" — "+r:""}`);}
                    catch(e){console.log(`  FAIL ${n}: ${e.message}`);errs.push(n+": "+e.message);}};
 
@@ -34,9 +34,12 @@ const step=(n,f)=>{try{const r=f();console.log(`  ok  ${n}${r?" — "+r:""}`);}
   await new Promise(r=>setTimeout(r,3000));
   console.log("=== 基础 ===");
   step("题库",()=>{const n=ev("BANK.length");if(n!==3311)throw new Error(n);return n+" 题";});
-  step("登录门",()=>{if(!D.querySelector("#gate"))throw new Error("没拦住");return "拦住了";});
-  await ev(`(async()=>{await registerUser("tester","pw1234");CURRENT="tester";
-    lsSet("b7_session","tester");document.querySelector("#gate").remove();enterApp("")})()`);
+  step("打开就进，没有登录门",()=>{
+    if(D.querySelector("#gate"))throw new Error("还有登录/选人界面");
+    if(!CUR())throw new Error("没有自动进入任何档案");
+    if(D.querySelector("#topbar").classList.contains("hide"))throw new Error("顶栏还藏着");
+    return "自动进入档案「"+CUR()+"」";});
+  ev(`createProfile("tester");CURRENT="tester";lsSet("b7_session","tester");enterApp("")`);
   await new Promise(r=>setTimeout(r,300));
   step("进入应用",()=>D.querySelector("#whoami").textContent);
   for(const v of ["home","log","vocab","paper","settings","source"])

@@ -42,8 +42,7 @@ function simulateSelect(container){
 
 (async()=>{
   await new Promise(r=>setTimeout(r,3000));
-  await ev(`(async()=>{await registerUser("tester","pw1234");CURRENT="tester";lsSet("b7_session","tester");
-    document.querySelector("#gate").remove();enterApp("")})()`);
+  ev(`createProfile("tester");CURRENT="tester";lsSet("b7_session","tester");enterApp("")`);
   await new Promise(r=>setTimeout(r,300));
   const withStim = ev(`BANK.findIndex(q=>q.sti && q.sec===1)`);
 
